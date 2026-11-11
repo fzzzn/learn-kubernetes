@@ -6,14 +6,14 @@ data "openstack_images_image_v2" "vm" {
 locals {
   nodes = merge(
     {
-      control_plane = {
+      kube-control-plane = {
         name     = "${var.cluster_name}-control-plane"
         flavor   = var.control_plane_flavor_name
         fixed_ip = cidrhost(var.subnet_cidr, var.node_ip_start)
       }
     },
     {
-      for index in range(var.worker_count) : "worker-${index + 1}" => {
+      for index in range(var.worker_count) : "kube-worker-${index + 1}" => {
         name     = "${var.cluster_name}-worker-${index + 1}"
         flavor   = var.worker_flavor_name
         fixed_ip = cidrhost(var.subnet_cidr, var.node_ip_start + index + 1)
