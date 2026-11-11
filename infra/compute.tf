@@ -6,9 +6,9 @@ data "openstack_images_image_v2" "vm" {
 locals {
   nodes = merge(
     {
-      master = {
-        name     = "${var.cluster_name}-master"
-        flavor   = var.master_flavor_name
+      control_plane = {
+        name     = "${var.cluster_name}-control-plane"
+        flavor   = var.control_plane_flavor_name
         fixed_ip = cidrhost(var.subnet_cidr, var.node_ip_start)
       }
     },

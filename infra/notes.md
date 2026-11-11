@@ -11,17 +11,17 @@
 
 ## Cluster Defaults
 
-The configuration creates one master and three workers:
+The configuration creates one control-plane node and three workers:
 
 | Node | Private IP |
 |---|---|
-| `kube-master` | `192.168.10.10` |
+| `kube-control-plane` | `192.168.10.10` |
 | `kube-worker-1` | `192.168.10.11` |
 | `kube-worker-2` | `192.168.10.12` |
 | `kube-worker-3` | `192.168.10.13` |
 
 Private IP allocation starts at `node_ip_start` and continues sequentially. Set
-`master_flavor_name` and `worker_flavor_name` independently in
+`control_plane_flavor_name` and `worker_flavor_name` independently in
 `terraform.tfvars` when different flavors are required.
 
 ## Deploy

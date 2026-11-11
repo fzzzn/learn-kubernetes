@@ -65,7 +65,7 @@ variable "dns_nameservers" {
 }
 
 variable "node_ip_start" {
-  description = "Subnet host offset assigned to the master node; workers follow sequentially"
+  description = "Subnet host offset assigned to the control-plane node; workers follow sequentially"
   type        = number
   default     = 10
 }
@@ -100,8 +100,8 @@ variable "volume_type" {
   default     = "Standard_vDisk-T0"
 }
 
-variable "master_flavor_name" {
-  description = "Flavor used by the Kubernetes master"
+variable "control_plane_flavor_name" {
+  description = "Flavor used by the Kubernetes control-plane node"
   type        = string
   default     = "gv.s-1"
 }
