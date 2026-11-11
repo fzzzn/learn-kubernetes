@@ -49,7 +49,7 @@ variable "network_name" {
 variable "subnet_name" {
   description = "Name of the private subnet"
   type        = string
-  default     = "test-subnet"
+  default     = "kube-subnet"
 }
 
 variable "subnet_cidr" {
@@ -64,16 +64,22 @@ variable "dns_nameservers" {
   default     = ["1.1.1.1", "1.0.0.1"]
 }
 
+variable "node_ip_start" {
+  description = "Subnet host offset assigned to the master node; workers follow sequentially"
+  type        = number
+  default     = 10
+}
+
 variable "router_name" {
   description = "Name of the virtual router"
   type        = string
-  default     = "test-vrouter"
+  default     = "kube-vrouter"
 }
 
-variable "instance_name" {
-  description = "Name of the VM"
+variable "cluster_name" {
+  description = "Base name used for the Kubernetes nodes"
   type        = string
-  default     = "test-opentofu"
+  default     = "kube"
 }
 
 variable "image_name" {
@@ -85,7 +91,7 @@ variable "image_name" {
 variable "volume_size" {
   description = "Boot volume size in GB"
   type        = number
-  default     = 20
+  default     = 50
 }
 
 variable "volume_type" {
@@ -94,10 +100,22 @@ variable "volume_type" {
   default     = "Standard_vDisk-T0"
 }
 
-variable "flavor_name" {
-  description = "Flavor used by the VM"
+variable "master_flavor_name" {
+  description = "Flavor used by the Kubernetes master"
   type        = string
   default     = "gv.s-1"
+}
+
+variable "worker_flavor_name" {
+  description = "Flavor used by Kubernetes workers"
+  type        = string
+  default     = "gv.s-1"
+}
+
+variable "worker_count" {
+  description = "Number of Kubernetes worker nodes"
+  type        = number
+  default     = 3
 }
 
 variable "key_pair" {

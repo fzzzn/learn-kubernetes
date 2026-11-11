@@ -13,19 +13,19 @@ output "subnet_id" {
   value       = openstack_networking_subnet_v2.private.id
 }
 
-output "vm_id" {
-  description = "ID of the VM"
-  value       = openstack_compute_instance_v2.vm.id
+output "vm_ids" {
+  description = "IDs of the Kubernetes nodes"
+  value       = { for role, vm in openstack_compute_instance_v2.vm : role => vm.id }
 }
 
-output "vm_access_ip" {
-  description = "VM address on the private network"
-  value       = openstack_compute_instance_v2.vm.access_ip_v4
+output "vm_access_ips" {
+  description = "Private IPs of the Kubernetes nodes"
+  value       = { for role, vm in openstack_compute_instance_v2.vm : role => vm.access_ip_v4 }
 }
 
-output "vm_floating_ip" {
-  description = "Floating IP assigned to the VM"
-  value       = openstack_networking_floatingip_v2.vm.address
+output "vm_floating_ips" {
+  description = "Floating IPs assigned to the Kubernetes nodes"
+  value       = { for role, ip in openstack_networking_floatingip_v2.vm : role => ip.address }
 }
 
 output "vm_password" {
