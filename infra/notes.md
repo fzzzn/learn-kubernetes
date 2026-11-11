@@ -29,17 +29,27 @@ Private IP allocation starts at `node_ip_start` and continues sequentially. Set
 Run commands from the repository root:
 
 ```bash
+# Initialize OpenTofu and install required providers.
 tofu -chdir=infra init
+# Format OpenTofu configuration files.
 tofu -chdir=infra fmt
+# Validate syntax and resource references.
 tofu -chdir=infra validate
+# Preview infrastructure changes without applying them.
 tofu -chdir=infra plan
+# Create or update infrastructure after confirmation.
 tofu -chdir=infra apply
 ```
 
 The provider authenticates with an OpenStack application credential. Set
 `openstack_application_credential_id` and
 `openstack_application_credential_secret` in `terraform.tfvars` or provide
-them through `TF_VAR_` environment variables.
+them through `TF_VAR_` environment variables:
+
+```bash
+export TF_VAR_openstack_application_credential_id="your-id"
+export TF_VAR_openstack_application_credential_secret="your-secret"
+```
 
 Review the plan before applying changes. Changing node keys or names can cause
 OpenTofu to replace existing instances and their associated resources.
@@ -47,9 +57,13 @@ OpenTofu to replace existing instances and their associated resources.
 ## Useful Outputs
 
 ```bash
+# Display the public floating IP for each Kubernetes node.
 tofu -chdir=infra output vm_floating_ips
+# Display the private IP for each Kubernetes node.
 tofu -chdir=infra output vm_access_ips
+# Display the OpenStack server ID for each Kubernetes node.
 tofu -chdir=infra output vm_ids
+# Display only the generated VM password value.
 tofu -chdir=infra output -raw vm_password
 ```
 
