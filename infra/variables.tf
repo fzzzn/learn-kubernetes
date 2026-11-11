@@ -72,7 +72,7 @@ variable "cluster_name" {
 variable "image_name" {
   description = "Name of the image used by the VM"
   type        = string
-  default     = "debian-13-genericcloud-amd64"
+  default     = "Ubuntu-26.04-eranyaImage-v1.0.img.qcow2"
 }
 
 variable "volume_size" {
