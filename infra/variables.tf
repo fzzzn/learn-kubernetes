@@ -30,7 +30,7 @@ variable "external_network_name" {
 variable "network_name" {
   description = "Name of the private network"
   type        = string
-  default     = "test-network"
+  default     = "kube-network"
 }
 
 variable "subnet_name" {
@@ -90,13 +90,13 @@ variable "volume_type" {
 variable "control_plane_flavor_name" {
   description = "Flavor used by the Kubernetes control-plane node"
   type        = string
-  default     = "gv.s-1"
+  default     = "gv.l-3"
 }
 
 variable "worker_flavor_name" {
   description = "Flavor used by Kubernetes workers"
   type        = string
-  default     = "gv.s-1"
+  default     = "gv.l-3"
 }
 
 variable "worker_count" {
