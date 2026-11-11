@@ -2,5 +2,5 @@
 
 This repo will contains my learning kubernetes journey. I will be adding notes, examples, and resources that I find useful as I learn more about Kubernetes.
 
-# References
+## References
 [JustHumanz/Kube-dojo](https://github.com/JustHumanz/Kube-dojo)
