@@ -36,6 +36,11 @@ tofu -chdir=infra plan
 tofu -chdir=infra apply
 ```
 
+The provider authenticates with an OpenStack application credential. Set
+`openstack_application_credential_id` and
+`openstack_application_credential_secret` in `terraform.tfvars` or provide
+them through `TF_VAR_` environment variables.
+
 Review the plan before applying changes. Changing node keys or names can cause
 OpenTofu to replace existing instances and their associated resources.
 
@@ -71,5 +76,6 @@ not deleted automatically when an instance is destroyed.
 ## Security
 
 - Keep `terraform.tfvars` and `terraform.tfstate` private.
-- OpenStack and generated VM passwords are stored in Terraform state.
+- Keep OpenStack application credentials out of source control and terminal
+  logs. Generated VM passwords are stored in Terraform state.
 - Use a remote encrypted state backend for shared or production deployments.

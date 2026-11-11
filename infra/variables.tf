@@ -1,26 +1,13 @@
-variable "openstack_tenant_name" {
-  description = "The OpenStack tenant name"
+variable "openstack_application_credential_id" {
+  description = "OpenStack application credential ID used for API authentication"
   type        = string
+  sensitive   = true
 }
 
-variable "openstack_user_domain_name" {
-  description = "The OpenStack user domain name"
+variable "openstack_application_credential_secret" {
+  description = "OpenStack application credential secret used for API authentication"
   type        = string
-}
-
-variable "openstack_project_domain_name" {
-  description = "The OpenStack project domain name"
-  type        = string
-}
-
-variable "openstack_user_name" {
-  description = "The OpenStack user name"
-  type        = string
-}
-
-variable "openstack_password" {
-  description = "The OpenStack password"
-  type        = string
+  sensitive   = true
 }
 
 variable "openstack_auth_url" {

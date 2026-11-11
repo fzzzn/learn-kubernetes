@@ -14,13 +14,10 @@ terraform {
 }
 
 provider "openstack" {
-  tenant_name         = var.openstack_tenant_name
-  user_domain_name    = var.openstack_user_domain_name
-  project_domain_name = var.openstack_project_domain_name
-  user_name           = var.openstack_user_name
-  password            = var.openstack_password
-  auth_url            = var.openstack_auth_url
-  region              = var.openstack_region
+  application_credential_id     = var.openstack_application_credential_id
+  application_credential_secret = var.openstack_application_credential_secret
+  auth_url                      = var.openstack_auth_url
+  region                        = var.openstack_region
 }
 
 resource "random_password" "vm" {
