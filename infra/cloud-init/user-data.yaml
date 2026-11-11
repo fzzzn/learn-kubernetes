@@ -11,5 +11,3 @@ system_info:
     lock_passwd: false
 package_update: true
 package_upgrade: true
-packages:
-  - nginx
