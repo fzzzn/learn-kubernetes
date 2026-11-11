@@ -1,0 +1,13 @@
+#cloud-config
+timezone: Asia/Jakarta
+system_info:
+  default_user:
+    name: fauzan
+    gecos: Fauzan
+    groups: [adm, sudo]
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    shell: /bin/bash
+package_update: true
+package_upgrade: true
+packages:
+  - nginx
