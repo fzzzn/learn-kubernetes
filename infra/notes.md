@@ -7,7 +7,7 @@
 - `network.tf` - Private network, subnet, router, and floating IP allocation.
 - `compute.tf` - Kubernetes nodes, boot volumes, and floating IP associations.
 - `outputs.tf` - Network, node IP, floating IP, ID, and password outputs.
-- `cloud-init/user-data.yaml` - First-boot configuration for the `fauzan` user and Nginx.
+- `cloud-init/user-data.yaml` - First-boot configuration for the `fauzan` user.
 
 ## Cluster Defaults
 
