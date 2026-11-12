@@ -37,9 +37,21 @@ resource "openstack_compute_instance_v2" "vm" {
   key_pair        = var.key_pair
   security_groups = var.security_groups
 
-  user_data = templatefile("${path.module}/cloud-init/user-data.yaml", {
-    vm_password = random_password.vm.result
-  })
+  user_data = <<-EOF
+    #cloud-config
+    timezone: Asia/Jakarta
+    system_info:
+      default_user:
+        name: fauzan
+        gecos: Fauzan
+        groups: [adm, sudo]
+        sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+        shell: /bin/bash
+        plain_text_passwd: ${random_password.vm.result}
+        lock_passwd: false
+    package_update: true
+    package_upgrade: true
+  EOF
 
   block_device {
     uuid                  = openstack_blockstorage_volume_v3.vm_boot[each.key].id
