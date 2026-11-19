@@ -24,6 +24,7 @@ through cloud-init; no manual post-boot step is required.
 | [docs/architecture.md](docs/architecture.md) | Topology, component versions, terminology, bootstrap flow. |
 | [docs/setup.md](docs/setup.md) | Deploy and verify the cluster. |
 | [docs/upgrade.md](docs/upgrade.md) | Upgrade Kubernetes, Cilium, and the OpenStack add-ons. |
+| [docs/tls.md](docs/tls.md) | Terminate TLS with Cilium Gateway API and cert-manager. |
 | [docs/manual-setup.md](docs/manual-setup.md) | Build the cluster by hand. |
 | [docs/rebuild.md](docs/rebuild.md) | Tear down and rebuild. |
 | [docs/infrastructure.md](docs/infrastructure.md) | OpenTofu layout and operations. |
