@@ -31,11 +31,14 @@ resource "openstack_blockstorage_volume_v3" "vm_boot" {
 }
 
 resource "openstack_compute_instance_v2" "vm" {
-  for_each        = local.nodes
-  name            = each.value.name
-  flavor_name     = each.value.flavor
-  key_pair        = var.key_pair
-  security_groups = var.security_groups
+  for_each    = local.nodes
+  name        = each.value.name
+  flavor_name = each.value.flavor
+  key_pair    = var.key_pair
+  security_groups = concat(
+    [openstack_networking_secgroup_v2.cluster.name],
+    each.key == "kube-control-plane" ? [openstack_networking_secgroup_v2.control_plane.name] : []
+  )
 
   user_data = <<-EOF
     #cloud-config

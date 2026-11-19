@@ -110,9 +110,3 @@ variable "key_pair" {
   type        = string
   default     = "FZN-PGP"
 }
-
-variable "security_groups" {
-  description = "Security groups assigned to the VM"
-  type        = list(string)
-  default     = ["default"]
-}
