@@ -143,7 +143,7 @@ tear everything down and rebuild from a clean slate, see [rebuild.md](rebuild.md
 ## Useful Outputs
 
 ```bash
-# Display the public floating IP for each Kubernetes node.
+# Display the floating IP of each node that has one.
 tofu -chdir=infra output vm_floating_ips
 # Display the private IP for each Kubernetes node.
 tofu -chdir=infra output vm_access_ips
@@ -163,6 +163,18 @@ Use the configured OpenStack key pair and the generated `fauzan` user:
 ```bash
 ssh fauzan@<floating-ip>
 ```
+
+Workers get a floating IP only when `worker_floating_ips` is `true`, which is
+the default. Set it to `false` in `terraform.tfvars` to save public addresses
+and reach workers through the control plane instead:
+
+```bash
+ssh -J fauzan@<control-plane-floating-ip> fauzan@192.168.10.11
+```
+
+Disabling the worker floating IPs replaces the worker instances once, because
+the address is part of each node's `user_data`. The boot volumes are reused, so
+the OS is not reinstalled, and the control plane is not replaced.
 
 Cloud-init runs on first boot. Changes to `infra/cloud-init/kubernetes.yaml`
 require recreating the instance or otherwise rerunning cloud-init.

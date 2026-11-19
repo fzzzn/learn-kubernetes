@@ -114,7 +114,17 @@ openstack floating ip create "${EXTERNAL}" -f value -c floating_ip_address
 openstack server add floating ip kube-control-plane 160.20.x.x
 ```
 
-Repeat for each node and keep a note of the control-plane address.
+Only the control plane needs a floating IP for the cluster: it is used for SSH
+and added to the API server certificate SANs. Workers need one only for direct
+SSH; without it, reach them through the control plane:
+
+```bash
+ssh -J fauzan@<control-plane-floating-ip> fauzan@192.168.10.11
+```
+
+The automation exposes this as `worker_floating_ips`, which defaults to `true`.
+Keep the control-plane address: it goes into the API server `certSANs` and the
+workstation kubeconfig.
 
 ## 6. Node base setup
 
@@ -359,7 +369,8 @@ cilium status
 
 Expected:
 
-- all nodes `Ready`, with `INTERNAL-IP`, `EXTERNAL-IP`, and `openstack:///<uuid>`
+- all nodes `Ready`, with `INTERNAL-IP` and `openstack:///<uuid>`; `EXTERNAL-IP`
+  is populated for the control plane and for workers that have a floating IP
 - `cilium`, `cilium-envoy`, `cilium-operator`, CCM, and the Cinder node plugin
   running
 - `csi-cinder-sc-delete (default)` and `csi-cinder-sc-retain` present

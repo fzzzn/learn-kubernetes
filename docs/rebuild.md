@@ -94,7 +94,9 @@ The bootstrap is fully automated: containerd, kubeadm, Cilium, the OpenStack
 CCM (including Octavia load balancers), and Cinder CSI are installed from
 `infra/cloud-init/kubernetes.yaml`. No manual post-boot step is required.
 
-New floating IPs and a new VM password are generated on every rebuild:
+New floating IPs and a new VM password are generated on every rebuild. The
+control plane always gets one; workers get one each when
+`worker_floating_ips = true`:
 
 ```bash
 tofu -chdir=infra output vm_floating_ips

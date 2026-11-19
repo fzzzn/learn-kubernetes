@@ -27,6 +27,6 @@ resource "openstack_networking_router_interface_v2" "private" {
 }
 
 resource "openstack_networking_floatingip_v2" "vm" {
-  for_each = local.nodes
+  for_each = local.floating_ip_nodes
   pool     = var.external_network_name
 }

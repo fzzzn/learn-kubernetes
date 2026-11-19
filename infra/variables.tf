@@ -105,6 +105,12 @@ variable "worker_count" {
   default     = 3
 }
 
+variable "worker_floating_ips" {
+  description = "Allocate a floating IP for each worker; disable to reach workers through the control plane"
+  type        = bool
+  default     = true
+}
+
 variable "kubernetes_version" {
   description = "Kubernetes version for kubeadm, kubelet, and kubectl"
   type        = string

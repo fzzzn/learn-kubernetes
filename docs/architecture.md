@@ -55,8 +55,10 @@ Managed per workload, outside the node network:
 +------------------------------------+  +------------------------------------+
 ```
 
-Every node gets a floating IP for SSH. The control-plane floating IP is also
-added to the API server certificate SANs, so `kubectl` works from outside.
+The control plane always gets a floating IP for SSH, and it is added to the API
+server certificate SANs so `kubectl` works from outside. Workers get one only
+when `worker_floating_ips = true` (the default); without it, reach them through
+the control plane with `ssh -J`.
 
 ### Kubernetes layer
 

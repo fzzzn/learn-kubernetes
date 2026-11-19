@@ -29,7 +29,7 @@ output "vm_access_ips" {
 }
 
 output "vm_floating_ips" {
-  description = "Floating IPs assigned to the Kubernetes nodes"
+  description = "Floating IPs assigned to the Kubernetes nodes (control plane only when worker_floating_ips is false)"
   value       = { for role, ip in openstack_networking_floatingip_v2.vm : role => ip.address }
 }
 

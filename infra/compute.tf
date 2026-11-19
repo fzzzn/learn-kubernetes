@@ -26,6 +26,13 @@ locals {
       }
     }
   )
+
+  # The control plane always needs a floating IP: it is used for SSH and added
+  # to the API server certificate SANs. Workers only need one for direct SSH.
+  floating_ip_nodes = {
+    for key, node in local.nodes : key => node
+    if var.worker_floating_ips || key == "kube-control-plane"
+  }
 }
 
 resource "openstack_blockstorage_volume_v3" "vm_boot" {
@@ -55,7 +62,7 @@ resource "openstack_compute_instance_v2" "vm" {
     node_name                               = each.value.name
     cluster_name                            = var.cluster_name
     control_plane_ip                        = local.control_plane_ip
-    floating_ip                             = openstack_networking_floatingip_v2.vm[each.key].address
+    floating_ip                             = try(openstack_networking_floatingip_v2.vm[each.key].address, "")
     bootstrap_token                         = "${random_string.bootstrap_token_id.result}.${random_string.bootstrap_token_secret.result}"
     cilium_version                          = var.cilium_version
     cilium_cli_version                      = var.cilium_cli_version
@@ -89,7 +96,7 @@ resource "openstack_compute_instance_v2" "vm" {
 }
 
 resource "openstack_compute_floatingip_associate_v2" "vm" {
-  for_each    = local.nodes
+  for_each    = local.floating_ip_nodes
   floating_ip = openstack_networking_floatingip_v2.vm[each.key].address
   instance_id = openstack_compute_instance_v2.vm[each.key].id
 }
