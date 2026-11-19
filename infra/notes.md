@@ -8,7 +8,8 @@
 - `compute.tf` - Kubernetes nodes, boot volumes, and floating IP associations.
 - `outputs.tf` - Network, node IP, floating IP, ID, and password outputs.
 - `cloud-init/kubernetes.yaml` - First-boot bootstrap for the `fauzan` user,
-  containerd, kubeadm, Cilium, the OpenStack CCM, and Cinder CSI.
+  containerd, kubeadm, Cilium, the OpenStack CCM with Octavia load balancers,
+  and Cinder CSI.
 
 ## Cluster Defaults
 
@@ -46,12 +47,20 @@ it in the `cloud-config` Secret, and installs the OpenStack CCM and Cinder CSI
 Helm charts from `https://kubernetes.github.io/cloud-provider-openstack`.
 `cilium status --wait` runs last, after the CCM has published node addresses.
 
-The CCM is installed with only the `cloud-node` and `cloud-node-lifecycle`
-controllers. It sets each node's OpenStack provider ID and removes the
-external-cloud-provider taint. The `service` (Octavia LoadBalancer) controller
-is intentionally disabled. Cinder CSI is installed with the snapshotter
-disabled; it creates the `csi-cinder-sc-delete` default StorageClass and
-`csi-cinder-sc-retain`.
+The CCM runs the `cloud-node`, `cloud-node-lifecycle`, and `service`
+controllers. It sets each node's OpenStack provider ID, removes the
+external-cloud-provider taint, and provisions Octavia load balancers for
+`type: LoadBalancer` Services. The VIP is created on the private subnet
+(`subnet-id`) and assigned a floating IP from the external network
+(`floating-network-id`). With `manage-security-groups = true` the CCM creates
+one security group per Service, and the cluster security group allows NodePort
+traffic from the private subnet so the load balancer can reach the backends.
+`openstack_lb_provider` pins the Octavia provider and defaults to the cloud
+default; `ovn` also switches `lb-method` to `SOURCE_IP_PORT`. Because the OVN
+provider preserves the client source IP, widen the NodePort ingress rule (or
+set `loadBalancerSourceRanges` on the Service) when using it. Cinder CSI is
+installed with the snapshotter disabled; it creates the
+`csi-cinder-sc-delete` default StorageClass and `csi-cinder-sc-retain`.
 
 The Kubernetes, Cilium, Helm, and OpenStack cloud-provider versions are pinned
 in `variables.tf` with `kubernetes_version`, `cilium_version`,

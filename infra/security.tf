@@ -20,6 +20,16 @@ resource "openstack_networking_secgroup_rule_v2" "cluster_ingress" {
   remote_group_id   = openstack_networking_secgroup_v2.cluster.id
 }
 
+resource "openstack_networking_secgroup_rule_v2" "cluster_nodeport_ingress" {
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 30000
+  port_range_max    = 32767
+  remote_ip_prefix  = var.subnet_cidr
+  security_group_id = openstack_networking_secgroup_v2.cluster.id
+}
+
 resource "openstack_networking_secgroup_rule_v2" "ssh_ingress" {
   direction         = "ingress"
   ethertype         = "IPv4"

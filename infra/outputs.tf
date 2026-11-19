@@ -13,6 +13,11 @@ output "subnet_id" {
   value       = openstack_networking_subnet_v2.private.id
 }
 
+output "external_network_id" {
+  description = "ID of the external network used for floating IPs"
+  value       = data.openstack_networking_network_v2.external.id
+}
+
 output "vm_ids" {
   description = "IDs of the Kubernetes nodes"
   value       = { for role, vm in openstack_compute_instance_v2.vm : role => vm.id }

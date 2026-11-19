@@ -107,6 +107,13 @@ write_files:
       application-credential-id = ${openstack_application_credential_id}
       application-credential-secret = ${openstack_application_credential_secret}
       region = ${openstack_region}
+
+      [LoadBalancer]
+      subnet-id = ${openstack_subnet_id}
+      floating-network-id = ${openstack_external_network_id}
+      manage-security-groups = ${openstack_lb_manage_security_groups}
+      ${openstack_lb_provider_line}
+      ${openstack_lb_method_line}
       CLOUDCONF
         chmod 0600 /etc/kubernetes/cloud.conf
 
@@ -157,7 +164,7 @@ write_files:
           --set secret.create=false \
           --set secret.name=cloud-config \
           --set dnsPolicy=Default \
-          --set "enabledControllers={cloud-node,cloud-node-lifecycle}" \
+          --set "enabledControllers={cloud-node,cloud-node-lifecycle,service}" \
           --wait --timeout 10m
 
         helm upgrade --install openstack-cinder-csi \

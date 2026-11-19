@@ -141,6 +141,18 @@ variable "openstack_cloud_provider_chart_version" {
   default     = "2.36.5"
 }
 
+variable "openstack_lb_provider" {
+  description = "Octavia load-balancer provider for LoadBalancer Services; empty uses the cloud default (for example amphora or ovn)"
+  type        = string
+  default     = ""
+}
+
+variable "openstack_lb_manage_security_groups" {
+  description = "Let the CCM create and manage a security group for each LoadBalancer Service"
+  type        = bool
+  default     = true
+}
+
 variable "key_pair" {
   description = "Existing OpenStack key pair to assign to the VM"
   type        = string

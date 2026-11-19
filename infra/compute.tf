@@ -7,6 +7,9 @@ locals {
   kubernetes_major_minor = join(".", slice(split(".", var.kubernetes_version), 0, 2))
   control_plane_ip       = cidrhost(var.subnet_cidr, var.node_ip_start)
 
+  openstack_lb_provider_line = var.openstack_lb_provider == "" ? "" : "lb-provider = ${var.openstack_lb_provider}"
+  openstack_lb_method_line   = var.openstack_lb_provider == "ovn" ? "lb-method = SOURCE_IP_PORT" : ""
+
   nodes = merge(
     {
       kube-control-plane = {
@@ -62,6 +65,11 @@ resource "openstack_compute_instance_v2" "vm" {
     openstack_region                        = var.openstack_region
     openstack_application_credential_id     = var.openstack_application_credential_id
     openstack_application_credential_secret = var.openstack_application_credential_secret
+    openstack_subnet_id                     = openstack_networking_subnet_v2.private.id
+    openstack_external_network_id           = data.openstack_networking_network_v2.external.id
+    openstack_lb_provider_line              = local.openstack_lb_provider_line
+    openstack_lb_method_line                = local.openstack_lb_method_line
+    openstack_lb_manage_security_groups     = var.openstack_lb_manage_security_groups
   })
 
   block_device {

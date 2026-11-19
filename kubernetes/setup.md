@@ -31,9 +31,15 @@ OpenStack application credential from `terraform.tfvars`; the same credential
 is stored in the `cloud-config` Secret in `kube-system` and consumed by the
 Cinder CSI driver.
 
-The CCM service (LoadBalancer) controller is disabled to avoid requiring
-Octavia. Services of type `LoadBalancer` will stay pending unless you enable it
-and add `[LoadBalancer]` settings to the cloud configuration.
+The CCM also runs its `service` controller, so `type: LoadBalancer` Services are
+provisioned through Octavia. The load balancer VIP is created on the cluster
+subnet and assigned a floating IP from the external network, which is what
+`kubectl get service` reports as `EXTERNAL-IP`. The CCM creates a security
+group per Service, and the cluster security group allows NodePort traffic from
+the private subnet so the load balancer can reach the backends. Leave
+`openstack_lb_provider` empty to use the cloud's default Octavia provider, or
+set it to `amphora` or `ovn`; the OVN provider also pins
+`lb-method = SOURCE_IP_PORT`.
 
 Cloud-init can take several minutes. Follow the control-plane bootstrap log:
 
@@ -87,6 +93,32 @@ removes the corresponding Cinder volume:
 
 ```bash
 kubectl delete pvc cinder-test
+```
+
+Expose a workload through Octavia to confirm LoadBalancer support:
+
+```bash
+kubectl create deployment web --image=nginx:1.29 --replicas=2
+kubectl expose deployment web --type=LoadBalancer --port=80 --target-port=80
+kubectl get service web -w
+```
+
+`EXTERNAL-IP` stays `<pending>` until Octavia finishes creating the load
+balancer, which can take a minute or two. Once it is populated, the Service is
+reachable from outside the cluster:
+
+```bash
+SERVICE_IP="$(kubectl get service web -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+curl "http://${SERVICE_IP}"
+openstack loadbalancer list
+```
+
+Delete the test Service when finished. The CCM removes the Octavia load
+balancer and its floating IP:
+
+```bash
+kubectl delete service web
+kubectl delete deployment web
 ```
 
 Copy the admin kubeconfig to a workstation and point it at the control-plane
