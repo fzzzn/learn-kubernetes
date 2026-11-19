@@ -33,3 +33,8 @@ output "vm_password" {
   value       = random_password.vm.result
   sensitive   = true
 }
+
+output "control_plane_access_ip" {
+  description = "Private IP used by worker nodes to reach the Kubernetes API"
+  value       = local.control_plane_ip
+}

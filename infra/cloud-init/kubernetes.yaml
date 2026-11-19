@@ -1,0 +1,206 @@
+#cloud-config
+timezone: Asia/Jakarta
+system_info:
+  default_user:
+    name: fauzan
+    gecos: Fauzan
+    groups: [adm, sudo]
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    plain_text_passwd: '${vm_password}'
+    lock_passwd: false
+package_update: true
+package_upgrade: true
+
+write_files:
+  - path: /usr/local/bin/bootstrap-kubernetes.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      export HOME=/root
+
+      swapoff -a
+      sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
+
+      cat >/etc/modules-load.d/kubernetes.conf <<'MODULES'
+      overlay
+      br_netfilter
+      MODULES
+      modprobe overlay
+      modprobe br_netfilter
+
+      cat >/etc/sysctl.d/99-kubernetes-cri.conf <<'SYSCTL'
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+      SYSCTL
+      sed -ri 's/^#?net\.ipv4\.ip_forward\s*=.*/net.ipv4.ip_forward = 1/' /etc/sysctl.conf
+      sysctl --system
+      sysctl -w net.ipv4.ip_forward=1
+      sysctl -w net.bridge.bridge-nf-call-iptables=1
+      sysctl -w net.bridge.bridge-nf-call-ip6tables=1
+
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y apt-transport-https ca-certificates curl gpg containerd
+
+      mkdir -p /etc/containerd /etc/apt/keyrings
+      containerd config default >/etc/containerd/config.toml
+      sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+      systemctl enable --now containerd
+
+      curl -fsSL https://pkgs.k8s.io/core:/stable:/v${kubernetes_major_minor}/deb/Release.key |
+        gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${kubernetes_major_minor}/deb/ /" \
+        >/etc/apt/sources.list.d/kubernetes.list
+
+      apt-get update
+      apt-get install -y kubelet=${kubernetes_version}-1.1 kubeadm=${kubernetes_version}-1.1 kubectl=${kubernetes_version}-1.1
+      apt-mark hold kubelet kubeadm kubectl
+      systemctl enable kubelet
+
+      install -d -m 0755 /etc/kubernetes /etc/cacert
+
+      if [ "${is_control_plane}" = "true" ]; then
+        if [ ! -f /etc/kubernetes/admin.conf ]; then
+          cat >/etc/kubernetes/kubeadm-init.yaml <<'KUBEADM'
+      apiVersion: kubeadm.k8s.io/v1beta4
+      kind: InitConfiguration
+      localAPIEndpoint:
+        advertiseAddress: ${control_plane_ip}
+        bindPort: 6443
+      nodeRegistration:
+        name: ${node_name}
+        kubeletExtraArgs:
+          - name: cloud-provider
+            value: external
+      ---
+      apiVersion: kubeadm.k8s.io/v1beta4
+      kind: ClusterConfiguration
+      clusterName: ${cluster_name}
+      kubernetesVersion: v${kubernetes_version}
+      networking:
+        podSubnet: ${pod_network_cidr}
+      apiServer:
+        certSANs:
+          - ${control_plane_ip}
+          - ${floating_ip}
+      KUBEADM
+          chmod 0600 /etc/kubernetes/kubeadm-init.yaml
+
+          kubeadm init --config /etc/kubernetes/kubeadm-init.yaml
+
+          kubeadm token create "${bootstrap_token}" --ttl 0 \
+            --kubeconfig=/etc/kubernetes/admin.conf
+
+          install -d -m 0700 -o fauzan -g fauzan /home/fauzan/.kube
+          install -m 0600 -o fauzan -g fauzan /etc/kubernetes/admin.conf /home/fauzan/.kube/config
+        fi
+
+        export KUBECONFIG=/etc/kubernetes/admin.conf
+
+        cat >/etc/kubernetes/cloud.conf <<'CLOUDCONF'
+      [Global]
+      auth-url = ${openstack_auth_url}
+      application-credential-id = ${openstack_application_credential_id}
+      application-credential-secret = ${openstack_application_credential_secret}
+      region = ${openstack_region}
+      CLOUDCONF
+        chmod 0600 /etc/kubernetes/cloud.conf
+
+        kubectl -n kube-system create secret generic cloud-config \
+          --from-file=cloud.conf=/etc/kubernetes/cloud.conf \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        case "$(uname -m)" in
+          aarch64|arm64) CLI_ARCH=arm64 ;;
+          *)             CLI_ARCH=amd64 ;;
+        esac
+
+        CLI_TARBALL="cilium-linux-$CLI_ARCH.tar.gz"
+        curl -fsSL -o "/tmp/$CLI_TARBALL" \
+          "https://github.com/cilium/cilium-cli/releases/download/${cilium_cli_version}/$CLI_TARBALL"
+        curl -fsSL -o "/tmp/$CLI_TARBALL.sha256sum" \
+          "https://github.com/cilium/cilium-cli/releases/download/${cilium_cli_version}/$CLI_TARBALL.sha256sum"
+        (cd /tmp && sha256sum --check "$CLI_TARBALL.sha256sum")
+        tar -xzf "/tmp/$CLI_TARBALL" -C /usr/local/bin cilium
+        rm -f "/tmp/$CLI_TARBALL" "/tmp/$CLI_TARBALL.sha256sum"
+
+        # Node addresses are only published once the CCM runs, so the API
+        # server cannot proxy to kubelets yet. Wait for the DaemonSet rollout
+        # here and check the full Cilium status after the CCM is installed.
+        cilium install \
+          --version "${cilium_version}" \
+          --set "ipam.operator.clusterPoolIPv4PodCIDRList={${pod_network_cidr}}" \
+          --set "kubeProxyReplacement=false"
+        kubectl -n kube-system rollout status daemonset/cilium --timeout=10m
+
+        HELM_TARBALL="helm-${helm_version}-linux-$CLI_ARCH.tar.gz"
+        curl -fsSL -o "/tmp/$HELM_TARBALL" \
+          "https://get.helm.sh/$HELM_TARBALL"
+        curl -fsSL -o "/tmp/$HELM_TARBALL.sha256sum" \
+          "https://get.helm.sh/$HELM_TARBALL.sha256sum"
+        (cd /tmp && sha256sum --check "$HELM_TARBALL.sha256sum")
+        tar -xzf "/tmp/$HELM_TARBALL" -C /tmp "linux-$CLI_ARCH/helm"
+        install -m 0755 "/tmp/linux-$CLI_ARCH/helm" /usr/local/bin/helm
+        rm -rf "/tmp/$HELM_TARBALL" "/tmp/$HELM_TARBALL.sha256sum" "/tmp/linux-$CLI_ARCH"
+
+        helm upgrade --install openstack-cloud-controller-manager \
+          openstack-cloud-controller-manager \
+          --repo https://kubernetes.github.io/cloud-provider-openstack \
+          --version "${openstack_cloud_provider_chart_version}" \
+          --namespace kube-system \
+          --set cluster.name="${cluster_name}" \
+          --set secret.enabled=true \
+          --set secret.create=false \
+          --set secret.name=cloud-config \
+          --set dnsPolicy=Default \
+          --set "enabledControllers={cloud-node,cloud-node-lifecycle}" \
+          --wait --timeout 10m
+
+        helm upgrade --install openstack-cinder-csi \
+          openstack-cinder-csi \
+          --repo https://kubernetes.github.io/cloud-provider-openstack \
+          --version "${openstack_cloud_provider_chart_version}" \
+          --namespace kube-system \
+          --set clusterID="${cluster_name}" \
+          --set secret.enabled=true \
+          --set secret.create=false \
+          --set secret.name=cloud-config \
+          --set csi.plugin.nodePlugin.dnsPolicy=Default \
+          --set csi.snapshotter.enabled=false \
+          --set storageClass.enabled=true \
+          --set storageClass.delete.isDefault=true
+
+        kubectl -n kube-system rollout status \
+          daemonset/openstack-cinder-csi-nodeplugin --timeout=5m
+
+        cilium status --wait --wait-duration 10m
+      else
+        if [ ! -f /etc/kubernetes/kubelet.conf ]; then
+          cat >/etc/kubernetes/kubeadm-join.yaml <<'KUBEADM'
+      apiVersion: kubeadm.k8s.io/v1beta4
+      kind: JoinConfiguration
+      discovery:
+        bootstrapToken:
+          apiServerEndpoint: ${control_plane_ip}:6443
+          token: ${bootstrap_token}
+          unsafeSkipCAVerification: true
+      nodeRegistration:
+        name: ${node_name}
+        kubeletExtraArgs:
+          - name: cloud-provider
+            value: external
+      KUBEADM
+          chmod 0600 /etc/kubernetes/kubeadm-join.yaml
+
+          until kubeadm join --config /etc/kubernetes/kubeadm-join.yaml; do
+            sleep 10
+          done
+        fi
+      fi
+
+runcmd:
+  - [bash, /usr/local/bin/bootstrap-kubernetes.sh]

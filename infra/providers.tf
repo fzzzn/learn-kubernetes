@@ -25,3 +25,15 @@ resource "random_password" "vm" {
   special          = true
   override_special = "!@#$%&*+-_="
 }
+
+resource "random_string" "bootstrap_token_id" {
+  length  = 6
+  upper   = false
+  special = false
+}
+
+resource "random_string" "bootstrap_token_secret" {
+  length  = 16
+  upper   = false
+  special = false
+}

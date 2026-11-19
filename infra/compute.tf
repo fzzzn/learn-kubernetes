@@ -4,12 +4,15 @@ data "openstack_images_image_v2" "vm" {
 }
 
 locals {
+  kubernetes_major_minor = join(".", slice(split(".", var.kubernetes_version), 0, 2))
+  control_plane_ip       = cidrhost(var.subnet_cidr, var.node_ip_start)
+
   nodes = merge(
     {
       kube-control-plane = {
         name     = "${var.cluster_name}-control-plane"
         flavor   = var.control_plane_flavor_name
-        fixed_ip = cidrhost(var.subnet_cidr, var.node_ip_start)
+        fixed_ip = local.control_plane_ip
       }
     },
     {
@@ -40,21 +43,26 @@ resource "openstack_compute_instance_v2" "vm" {
     each.key == "kube-control-plane" ? [openstack_networking_secgroup_v2.control_plane.name] : []
   )
 
-  user_data = <<-EOF
-    #cloud-config
-    timezone: Asia/Jakarta
-    system_info:
-      default_user:
-        name: fauzan
-        gecos: Fauzan
-        groups: [adm, sudo]
-        sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-        shell: /bin/bash
-        plain_text_passwd: ${random_password.vm.result}
-        lock_passwd: false
-    package_update: true
-    package_upgrade: true
-  EOF
+  user_data = templatefile("${path.module}/cloud-init/kubernetes.yaml", {
+    vm_password                             = random_password.vm.result
+    kubernetes_major_minor                  = local.kubernetes_major_minor
+    kubernetes_version                      = var.kubernetes_version
+    pod_network_cidr                        = var.pod_network_cidr
+    is_control_plane                        = each.key == "kube-control-plane"
+    node_name                               = each.value.name
+    cluster_name                            = var.cluster_name
+    control_plane_ip                        = local.control_plane_ip
+    floating_ip                             = openstack_networking_floatingip_v2.vm[each.key].address
+    bootstrap_token                         = "${random_string.bootstrap_token_id.result}.${random_string.bootstrap_token_secret.result}"
+    cilium_version                          = var.cilium_version
+    cilium_cli_version                      = var.cilium_cli_version
+    helm_version                            = var.helm_version
+    openstack_cloud_provider_chart_version  = var.openstack_cloud_provider_chart_version
+    openstack_auth_url                      = var.openstack_auth_url
+    openstack_region                        = var.openstack_region
+    openstack_application_credential_id     = var.openstack_application_credential_id
+    openstack_application_credential_secret = var.openstack_application_credential_secret
+  })
 
   block_device {
     uuid                  = openstack_blockstorage_volume_v3.vm_boot[each.key].id

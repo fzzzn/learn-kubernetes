@@ -105,6 +105,42 @@ variable "worker_count" {
   default     = 3
 }
 
+variable "kubernetes_version" {
+  description = "Kubernetes version for kubeadm, kubelet, and kubectl"
+  type        = string
+  default     = "1.36.6"
+}
+
+variable "pod_network_cidr" {
+  description = "Pod network CIDR used by the cluster CNI"
+  type        = string
+  default     = "10.244.0.0/16"
+}
+
+variable "cilium_version" {
+  description = "Cilium version installed by the Cilium CLI"
+  type        = string
+  default     = "v1.20.5"
+}
+
+variable "cilium_cli_version" {
+  description = "Cilium CLI version downloaded on the control plane"
+  type        = string
+  default     = "v0.20.3"
+}
+
+variable "helm_version" {
+  description = "Helm version downloaded on the control plane"
+  type        = string
+  default     = "v3.19.0"
+}
+
+variable "openstack_cloud_provider_chart_version" {
+  description = "Version of the openstack-cloud-controller-manager and openstack-cinder-csi Helm charts"
+  type        = string
+  default     = "2.36.5"
+}
+
 variable "key_pair" {
   description = "Existing OpenStack key pair to assign to the VM"
   type        = string

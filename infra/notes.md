@@ -7,7 +7,8 @@
 - `network.tf` - Private network, subnet, router, and floating IP allocation.
 - `compute.tf` - Kubernetes nodes, boot volumes, and floating IP associations.
 - `outputs.tf` - Network, node IP, floating IP, ID, and password outputs.
-- `cloud-init/user-data.yaml` - First-boot configuration for the `fauzan` user.
+- `cloud-init/kubernetes.yaml` - First-boot bootstrap for the `fauzan` user,
+  containerd, kubeadm, Cilium, the OpenStack CCM, and Cinder CSI.
 
 ## Cluster Defaults
 
@@ -23,6 +24,39 @@ The configuration creates one control-plane node and three workers:
 Private IP allocation starts at `node_ip_start` and continues sequentially. Set
 `control_plane_flavor_name` and `worker_flavor_name` independently in
 `terraform.tfvars` when different flavors are required.
+
+## Bootstrap
+
+Each node runs `cloud-init/kubernetes.yaml` on first boot. The control plane
+initializes kubeadm, creates the bootstrap token, and installs Cilium through
+the Cilium CLI. Workers retry `kubeadm join` against the control-plane private
+IP until the API server is reachable and the token exists.
+
+Cilium is installed with `kubeProxyReplacement=false`, so kube-proxy remains in
+charge of Service traffic. The Cilium pod CIDR is set from `pod_network_cidr`
+and must match the kubeadm `networking.podSubnet` value.
+
+Kubelet runs with `cloud-provider=external` on every node, so kubelet does not
+publish node addresses; the CCM does. Until it runs, the API server cannot
+proxy to kubelets and `cilium status` fails with
+`dial tcp: lookup <node> on <resolver>: no such host`. The bootstrap therefore
+waits only for the Cilium DaemonSet rollout, then writes
+`/etc/kubernetes/cloud.conf` from the OpenStack application credential, stores
+it in the `cloud-config` Secret, and installs the OpenStack CCM and Cinder CSI
+Helm charts from `https://kubernetes.github.io/cloud-provider-openstack`.
+`cilium status --wait` runs last, after the CCM has published node addresses.
+
+The CCM is installed with only the `cloud-node` and `cloud-node-lifecycle`
+controllers. It sets each node's OpenStack provider ID and removes the
+external-cloud-provider taint. The `service` (Octavia LoadBalancer) controller
+is intentionally disabled. Cinder CSI is installed with the snapshotter
+disabled; it creates the `csi-cinder-sc-delete` default StorageClass and
+`csi-cinder-sc-retain`.
+
+The Kubernetes, Cilium, Helm, and OpenStack cloud-provider versions are pinned
+in `variables.tf` with `kubernetes_version`, `cilium_version`,
+`cilium_cli_version`, `helm_version`, and
+`openstack_cloud_provider_chart_version`.
 
 ## Deploy
 
@@ -78,7 +112,7 @@ Use the configured OpenStack key pair and the generated `fauzan` user:
 ssh fauzan@<floating-ip>
 ```
 
-Cloud-init runs on first boot. Changes to `cloud-init/user-data.yaml` require
+Cloud-init runs on first boot. Changes to `cloud-init/kubernetes.yaml` require
 recreating the instance or otherwise rerunning cloud-init.
 
 ## Storage
@@ -87,9 +121,23 @@ Each node has a boot volume named `<node-name>-boot` using the configured
 `volume_type` and `volume_size`. Boot volumes are managed separately and are
 not deleted automatically when an instance is destroyed.
 
+The Cinder CSI driver provisions persistent volumes through the OpenStack
+Block Storage API. It uses the same `cloud-config` Secret as the CCM and
+creates two StorageClasses:
+
+- `csi-cinder-sc-delete` - default, `reclaimPolicy: Delete`
+- `csi-cinder-sc-retain` - `reclaimPolicy: Retain`
+
+The Cinder controller plugin schedules on a worker, so it stays `Pending` until
+the first worker joins. The node plugin runs on every node, including the
+control plane.
+
 ## Security
 
 - Keep `terraform.tfvars` and `terraform.tfstate` private.
 - Keep OpenStack application credentials out of source control and terminal
   logs. Generated VM passwords are stored in Terraform state.
+- The OpenStack application credential is embedded in each node's cloud-init
+  user data so the control plane can create the `cloud-config` Secret. Treat
+  instance user data and OpenStack metadata as sensitive.
 - Use a remote encrypted state backend for shared or production deployments.
