@@ -7,6 +7,7 @@ This repo will contains my learning kubernetes journey. I will be adding notes, 
 
 ## Docs
 
-- [Infrastructure notes](infra/notes.md)
+- [Cluster guide: topology, terminology, manual build](kubernetes/guide.md)
 - [Cluster setup and verification](kubernetes/setup.md)
 - [Teardown and rebuild](kubernetes/rebuild.md)
+- [Infrastructure notes](infra/notes.md)
