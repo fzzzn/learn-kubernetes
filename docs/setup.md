@@ -5,8 +5,8 @@ then initializes the control plane, installs Cilium, the OpenStack cloud
 controller manager (CCM), and the Cinder CSI driver. Worker nodes wait for the
 control-plane API and join with a generated bootstrap token.
 
-For the topology, terminology, and a step-by-step manual build, see
-[guide.md](guide.md).
+For the topology and terminology see [architecture.md](architecture.md); for a
+step-by-step manual build see [manual-setup.md](manual-setup.md).
 
 ## Deploy and bootstrap
 

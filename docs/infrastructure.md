@@ -1,14 +1,22 @@
-# Infrastructure Notes
+# Infrastructure
+
+The OpenTofu configuration in `infra/`: what each file does, the defaults, the
+bootstrap flow, and the operational commands.
+
+- Cluster architecture: [architecture.md](architecture.md)
+- Automated deploy: [setup.md](setup.md)
+- Manual build: [manual-setup.md](manual-setup.md)
+- Teardown and rebuild: [rebuild.md](rebuild.md)
 
 ## Layout
 
-- `providers.tf` - OpenTofu and provider configuration, including generated VM passwords.
-- `variables.tf` - Deployment inputs and defaults.
-- `network.tf` - Private network, subnet, router, and floating IP allocation.
-- `compute.tf` - Kubernetes nodes, boot volumes, and floating IP associations.
-- `security.tf` - Cluster, control-plane, and NodePort security groups.
-- `outputs.tf` - Network, node IP, floating IP, ID, and password outputs.
-- `cloud-init/kubernetes.yaml` - First-boot bootstrap for the `fauzan` user,
+- `infra/providers.tf` - OpenTofu and provider configuration, including generated VM passwords.
+- `infra/variables.tf` - Deployment inputs and defaults.
+- `infra/network.tf` - Private network, subnet, router, and floating IP allocation.
+- `infra/compute.tf` - Kubernetes nodes, boot volumes, and floating IP associations.
+- `infra/security.tf` - Cluster, control-plane, and NodePort security groups.
+- `infra/outputs.tf` - Network, node IP, floating IP, ID, and password outputs.
+- `infra/cloud-init/kubernetes.yaml` - First-boot bootstrap for the `fauzan` user,
   containerd, kubeadm, Cilium, the OpenStack CCM with Octavia load balancers,
   and Cinder CSI.
 
@@ -29,7 +37,7 @@ Private IP allocation starts at `node_ip_start` and continues sequentially. Set
 
 ## Bootstrap
 
-Each node runs `cloud-init/kubernetes.yaml` on first boot. The control plane
+Each node runs `infra/cloud-init/kubernetes.yaml` on first boot. The control plane
 initializes kubeadm, creates the bootstrap token, and installs Cilium through
 the Cilium CLI. Workers retry `kubeadm join` against the control-plane private
 IP until the API server is reachable and the token exists.
@@ -64,9 +72,39 @@ installed with the snapshotter disabled; it creates the
 `csi-cinder-sc-delete` default StorageClass and `csi-cinder-sc-retain`.
 
 The Kubernetes, Cilium, Helm, and OpenStack cloud-provider versions are pinned
-in `variables.tf` with `kubernetes_version`, `cilium_version`,
+in `infra/variables.tf` with `kubernetes_version`, `cilium_version`,
 `cilium_cli_version`, `helm_version`, and
 `openstack_cloud_provider_chart_version`.
+
+## Storage
+
+Each node has a boot volume named `<node-name>-boot` using the configured
+`volume_type` and `volume_size`. Boot volumes are managed separately and are
+not deleted automatically when an instance is destroyed.
+
+The Cinder CSI driver provisions persistent volumes through the OpenStack
+Block Storage API. It uses the same `cloud-config` Secret as the CCM and
+creates two StorageClasses:
+
+- `csi-cinder-sc-delete` - default, `reclaimPolicy: Delete`
+- `csi-cinder-sc-retain` - `reclaimPolicy: Retain`
+
+The Cinder controller plugin schedules on a worker, so it stays `Pending` until
+the first worker joins. The node plugin runs on every node, including the
+control plane.
+
+## Security Groups
+
+- `<cluster>-security-group` is attached to every node and allows node-to-node
+  traffic plus SSH.
+- `<cluster>-control-plane-security-group` is attached to the control plane
+  and allows the Kubernetes API on 6443.
+- The cluster group also allows TCP 30000-32767 from `subnet_cidr`, so Octavia
+  load balancers can reach the NodePorts of the backends.
+
+LoadBalancer Services do not need a pre-created security group. The CCM creates
+and manages one per Service (`manage-security-groups`) and removes it when the
+Service is deleted.
 
 ## Deploy
 
@@ -98,8 +136,8 @@ export TF_VAR_openstack_application_credential_secret="your-secret"
 Review the plan before applying changes. Changing node keys or names can cause
 OpenTofu to replace existing instances and their associated resources.
 
-To tear everything down and rebuild from a clean slate, see
-[../kubernetes/rebuild.md](../kubernetes/rebuild.md).
+For the full deploy and verification walkthrough, see [setup.md](setup.md). To
+tear everything down and rebuild from a clean slate, see [rebuild.md](rebuild.md).
 
 ## Useful Outputs
 
@@ -125,38 +163,8 @@ Use the configured OpenStack key pair and the generated `fauzan` user:
 ssh fauzan@<floating-ip>
 ```
 
-Cloud-init runs on first boot. Changes to `cloud-init/kubernetes.yaml` require
-recreating the instance or otherwise rerunning cloud-init.
-
-## Storage
-
-Each node has a boot volume named `<node-name>-boot` using the configured
-`volume_type` and `volume_size`. Boot volumes are managed separately and are
-not deleted automatically when an instance is destroyed.
-
-The Cinder CSI driver provisions persistent volumes through the OpenStack
-Block Storage API. It uses the same `cloud-config` Secret as the CCM and
-creates two StorageClasses:
-
-- `csi-cinder-sc-delete` - default, `reclaimPolicy: Delete`
-- `csi-cinder-sc-retain` - `reclaimPolicy: Retain`
-
-The Cinder controller plugin schedules on a worker, so it stays `Pending` until
-the first worker joins. The node plugin runs on every node, including the
-control plane.
-
-## Security Groups
-
-- `<cluster>-security-group` is attached to every node and allows node-to-node
-  traffic plus SSH.
-- `<cluster>-control-plane-security-group` is attached to the control plane
-  and allows the Kubernetes API on 6443.
-- The cluster group also allows TCP 30000-32767 from `subnet_cidr`, so Octavia
-  load balancers can reach the NodePorts of the backends.
-
-LoadBalancer Services do not need a pre-created security group. The CCM creates
-and manages one per Service (`manage-security-groups`) and removes it when the
-Service is deleted.
+Cloud-init runs on first boot. Changes to `infra/cloud-init/kubernetes.yaml`
+require recreating the instance or otherwise rerunning cloud-init.
 
 ## Security
 

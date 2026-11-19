@@ -1,8 +1,8 @@
 # Tear Down and Rebuild
 
-Use this when the cluster needs a clean slate: a Kubernetes, Cilium, or
-OpenStack chart upgrade, a `cloud-init/kubernetes.yaml` change, or a cluster
-that cannot be repaired in place.
+Use this when the cluster needs a clean slate: an
+`infra/cloud-init/kubernetes.yaml` change or a cluster that cannot be repaired
+in place.
 
 ## Choose the right scope
 
@@ -92,7 +92,7 @@ tofu -chdir=infra apply
 
 The bootstrap is fully automated: containerd, kubeadm, Cilium, the OpenStack
 CCM (including Octavia load balancers), and Cinder CSI are installed from
-`cloud-init/kubernetes.yaml`. No manual post-boot step is required.
+`infra/cloud-init/kubernetes.yaml`. No manual post-boot step is required.
 
 New floating IPs and a new VM password are generated on every rebuild:
 
