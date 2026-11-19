@@ -8,11 +8,6 @@ resource "openstack_networking_secgroup_v2" "control_plane" {
   description = "External Kubernetes API access"
 }
 
-resource "openstack_networking_secgroup_v2" "load_balancer" {
-  name        = "${var.cluster_name}-load-balancer-security-group"
-  description = "Public HTTP and HTTPS load-balancer access"
-}
-
 resource "openstack_networking_secgroup_rule_v2" "cluster_ingress" {
   direction         = "ingress"
   ethertype         = "IPv4"
@@ -48,24 +43,4 @@ resource "openstack_networking_secgroup_rule_v2" "kubernetes_api_ingress" {
   port_range_max    = 6443
   remote_ip_prefix  = "0.0.0.0/0"
   security_group_id = openstack_networking_secgroup_v2.control_plane.id
-}
-
-resource "openstack_networking_secgroup_rule_v2" "load_balancer_http_ingress" {
-  direction         = "ingress"
-  ethertype         = "IPv4"
-  protocol          = "tcp"
-  port_range_min    = 80
-  port_range_max    = 80
-  remote_ip_prefix  = "0.0.0.0/0"
-  security_group_id = openstack_networking_secgroup_v2.load_balancer.id
-}
-
-resource "openstack_networking_secgroup_rule_v2" "load_balancer_https_ingress" {
-  direction         = "ingress"
-  ethertype         = "IPv4"
-  protocol          = "tcp"
-  port_range_min    = 443
-  port_range_max    = 443
-  remote_ip_prefix  = "0.0.0.0/0"
-  security_group_id = openstack_networking_secgroup_v2.load_balancer.id
 }
