@@ -177,7 +177,9 @@ the address is part of each node's `user_data`. The boot volumes are reused, so
 the OS is not reinstalled, and the control plane is not replaced.
 
 Cloud-init runs on first boot. Changes to `infra/cloud-init/kubernetes.yaml`
-require recreating the instance or otherwise rerunning cloud-init.
+require recreating the instance or otherwise rerunning cloud-init. Recreating an
+instance keeps its Node object, so clear the stale `providerID` as described in
+[rebuild.md](rebuild.md).
 
 ## Security
 

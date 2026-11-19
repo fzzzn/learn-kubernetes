@@ -14,6 +14,33 @@ in place. To upgrade in place instead, see [upgrade.md](upgrade.md).
 Only the second option gives a genuinely fresh operating system. The rest of
 this document covers that path.
 
+## Stale provider ID after `apply`
+
+The first option replaces the instances but keeps the boot volumes, so kubelet
+reconnects with its existing certificates and the Node object survives. Its
+`spec.providerID` still points at the instance that was deleted, so the CCM
+cannot read the new one and stops refreshing the node:
+
+```text
+E1119 09:55:15.354301 12 node_controller.go:288] Error getting instance metadata for node addresses: instance not found
+```
+
+The symptom is an `EXTERNAL-IP` that no longer exists, for example a floating IP
+that was removed by `worker_floating_ips = false`.
+
+`spec.providerID` is immutable once set, so it cannot be patched. Delete the
+Node object and let kubelet register it again, one node at a time:
+
+```bash
+kubectl delete node kube-worker-1
+kubectl get nodes -w
+```
+
+Kubelet re-registers within a few minutes with an empty `providerID`, and the
+CCM fills it from the current instance. Restart kubelet on that worker if the
+node does not come back. Pods on the node are recreated by their DaemonSets;
+the VM, its boot volume, and its data are untouched.
+
 ## Before destroying
 
 LoadBalancer Services and PersistentVolumeClaims create OpenStack resources
