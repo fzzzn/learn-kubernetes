@@ -135,3 +135,6 @@ kubectl get nodes -o wide
 
 If `jq` is not installed, copy the control-plane floating IP from
 `tofu -chdir=infra output vm_floating_ips` instead.
+
+To tear the cluster down and rebuild it from scratch, see
+[rebuild.md](rebuild.md).

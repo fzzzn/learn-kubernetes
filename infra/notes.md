@@ -6,6 +6,7 @@
 - `variables.tf` - Deployment inputs and defaults.
 - `network.tf` - Private network, subnet, router, and floating IP allocation.
 - `compute.tf` - Kubernetes nodes, boot volumes, and floating IP associations.
+- `security.tf` - Cluster, control-plane, and NodePort security groups.
 - `outputs.tf` - Network, node IP, floating IP, ID, and password outputs.
 - `cloud-init/kubernetes.yaml` - First-boot bootstrap for the `fauzan` user,
   containerd, kubeadm, Cilium, the OpenStack CCM with Octavia load balancers,
@@ -97,6 +98,9 @@ export TF_VAR_openstack_application_credential_secret="your-secret"
 Review the plan before applying changes. Changing node keys or names can cause
 OpenTofu to replace existing instances and their associated resources.
 
+To tear everything down and rebuild from a clean slate, see
+[../kubernetes/rebuild.md](../kubernetes/rebuild.md).
+
 ## Useful Outputs
 
 ```bash
@@ -140,6 +144,19 @@ creates two StorageClasses:
 The Cinder controller plugin schedules on a worker, so it stays `Pending` until
 the first worker joins. The node plugin runs on every node, including the
 control plane.
+
+## Security Groups
+
+- `<cluster>-security-group` is attached to every node and allows node-to-node
+  traffic plus SSH.
+- `<cluster>-control-plane-security-group` is attached to the control plane
+  and allows the Kubernetes API on 6443.
+- The cluster group also allows TCP 30000-32767 from `subnet_cidr`, so Octavia
+  load balancers can reach the NodePorts of the backends.
+
+LoadBalancer Services do not need a pre-created security group. The CCM creates
+and manages one per Service (`manage-security-groups`) and removes it when the
+Service is deleted.
 
 ## Security
 
