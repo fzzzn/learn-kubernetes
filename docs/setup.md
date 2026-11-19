@@ -140,4 +140,5 @@ If `jq` is not installed, copy the control-plane floating IP from
 `tofu -chdir=infra output vm_floating_ips` instead.
 
 To tear the cluster down and rebuild it from scratch, see
-[rebuild.md](rebuild.md).
+[rebuild.md](rebuild.md). To move to newer Kubernetes or Cilium versions, see
+[upgrade.md](upgrade.md).

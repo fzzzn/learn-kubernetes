@@ -1,8 +1,8 @@
 # Tear Down and Rebuild
 
-Use this when the cluster needs a clean slate: an
-`infra/cloud-init/kubernetes.yaml` change or a cluster that cannot be repaired
-in place.
+Use this when the cluster needs a clean slate: a `cloud-init/kubernetes.yaml`
+change, a rebuild after a failed upgrade, or a cluster that cannot be repaired
+in place. To upgrade in place instead, see [upgrade.md](upgrade.md).
 
 ## Choose the right scope
 

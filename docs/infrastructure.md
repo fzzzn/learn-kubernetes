@@ -5,6 +5,7 @@ bootstrap flow, and the operational commands.
 
 - Cluster architecture: [architecture.md](architecture.md)
 - Automated deploy: [setup.md](setup.md)
+- Upgrade: [upgrade.md](upgrade.md)
 - Manual build: [manual-setup.md](manual-setup.md)
 - Teardown and rebuild: [rebuild.md](rebuild.md)
 
