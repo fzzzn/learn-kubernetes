@@ -94,6 +94,13 @@ resource "openstack_compute_instance_v2" "vm" {
   }
 
   depends_on = [openstack_networking_router_interface_v2.private]
+
+  # The OpenStack CCM attaches its own lb-sg-* security group to the port of
+  # every node behind a LoadBalancer Service. Left managed here, the next apply
+  # would detach it and break load balancer to NodePort traffic.
+  lifecycle {
+    ignore_changes = [security_groups]
+  }
 }
 
 resource "openstack_compute_floatingip_associate_v2" "vm" {

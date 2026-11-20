@@ -123,6 +123,13 @@ LoadBalancer Services do not need a pre-created security group. The CCM creates
 and manages one per Service (`manage-security-groups`) and removes it when the
 Service is deleted.
 
+The CCM also attaches that `lb-sg-*` group to the port of every node behind the
+load balancer. `infra/compute.tf` therefore ignores changes to
+`security_groups`; without it, the next `apply` would detach the group and
+break load balancer to NodePort traffic. The trade-off is that editing the
+`security_groups` list of a node no longer has an effect on existing
+instances; change the rules in `infra/security.tf` instead.
+
 ## Deploy
 
 Run commands from the repository root:
