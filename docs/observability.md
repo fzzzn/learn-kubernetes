@@ -169,6 +169,13 @@ rebuild, so update the DNS record afterwards.
 It creates a second Octavia load balancer, so this hostname gets its own
 floating IP.
 
+This needs Hubble itself, which the bootstrap enables only when
+`kube_proxy_replacement = true`. Both Services must exist first:
+
+```bash
+kubectl -n kube-system get service hubble-ui hubble-relay
+```
+
 The HTTP-01 solver is bound to a single Gateway, which is why the file defines
 its own `letsencrypt-prod-hubble` issuer. Keep its ACME email in sync with
 `grafana-gateway.yaml`.
@@ -191,6 +198,13 @@ curl -s -o /dev/null -w '%{http_code}\n' -u admin:changeme https://hubble.local.
 ```
 
 The first `curl` returns `401` (no credentials), the second `200`.
+
+Open `https://hubble.local.my.id`, log in, and pick a namespace. Flows appear
+once there is traffic; the connection indicator in the header turns green when
+the UI reaches `hubble-relay`. An empty list usually means the namespace filter
+matches nothing rather than a broken relay.
+
+The floating IP changes on a rebuild, so update the `A` record afterwards.
 
 > Hubble UI has no authentication of its own, so the manifest puts an nginx
 > proxy (`hubble-auth`) in front of it with HTTP basic auth. Log in as `admin`
@@ -246,6 +260,9 @@ kubectl delete -f manifests/observability/hubble-gateway.yaml
 | `no org id` in Grafana or Alloy logs | Loki runs with multi-tenancy (`auth_enabled: true`) and the request has no `X-Scope-OrgID` header. | The values file sets `loki.auth_enabled: false`. Re-run the Loki install after changing it. |
 | Grafana shows no logs | Alloy cannot reach Loki, or the datasource URL is wrong. | `kubectl -n monitoring logs ds/alloy` and check the push URL. |
 | PVC stays `Pending` | The StorageClass name does not exist. | `kubectl get storageclass` and fix `storageClassName` in the values files. |
+| Browser keeps asking for the Hubble password | The Secret holds a different htpasswd than the one you type, or the browser cached an old credential | Re-apply the Secret as shown in [Expose Hubble UI](#expose-hubble-ui) and reopen the page in a private window. |
+| Hubble UI loads but shows no flows | `hubble-relay` is not ready, or the selected namespace is idle | `kubectl -n kube-system get pods -l k8s-app=hubble-relay` and pick another namespace. |
+| `Certificate` stays `READY=False` for a public hostname | The DNS `A` record is missing or still cached, so HTTP-01 cannot validate | `dig +short @1.1.1.1 <hostname>`, fix the record, then `kubectl -n <namespace> delete challenge --all`. |
 
 ## Notes
 
@@ -259,5 +276,8 @@ kubectl delete -f manifests/observability/hubble-gateway.yaml
   Prometheus `serviceMonitorSelector` together.
 - The values file sets `grafana.ini.server.root_url` to the public hostname, so
   links in alerts and emails work. Change it if you use a different domain.
+- Every public hostname gets its own Octavia load balancer and floating IP, so
+  Grafana and Hubble together use two of each. Check your quota before adding
+  more.
 - The commands do not pin chart versions. Add `--version <chart-version>` to
   each install for reproducible upgrades.

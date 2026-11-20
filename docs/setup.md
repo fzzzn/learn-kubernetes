@@ -181,6 +181,10 @@ Expected `0`. If the kube-proxy DaemonSet is gone but `KUBE-SVC` chains remain,
 they are leftovers from an in-place switch; only `destroy` + `apply` clears
 them.
 
+The same flag also enables Hubble and its UI. To publish the UI on
+`https://hubble.local.my.id`, see
+[observability.md](observability.md#expose-hubble-ui).
+
 To tear the cluster down and rebuild it from scratch, see
 [rebuild.md](rebuild.md). To move to newer Kubernetes or Cilium versions, see
 [upgrade.md](upgrade.md). To expose an application over HTTPS, see

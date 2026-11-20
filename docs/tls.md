@@ -205,6 +205,11 @@ If your DNS provider is supported by cert-manager, DNS-01 is more robust: it
 does not need port 80 or a public challenge route, and it also works for
 wildcard names.
 
+`gatewayHTTPRoute.parentRefs` accepts a single Gateway, so one issuer can only
+solve challenges for one hostname. Give each Gateway its own ClusterIssuer; the
+repository uses `letsencrypt-prod` for Grafana and `letsencrypt-prod-hubble` for
+Hubble.
+
 ### Certificate
 
 ```yaml
@@ -281,7 +286,8 @@ recreated, for example after `tofu destroy` + `apply`. Update DNS after a
 rebuild, or automate the record with your DNS provider.
 
 For a complete example, see [observability.md](observability.md), which exposes
-Grafana on `https://grafana.local.my.id`.
+Grafana on `https://grafana.local.my.id` and the Hubble UI on
+`https://hubble.local.my.id`.
 
 ## Verify
 
