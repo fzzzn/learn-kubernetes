@@ -192,6 +192,7 @@ All versions are pinned in `infra/variables.tf`.
 | `v1beta4` | kubeadm config API version used by Kubernetes 1.36. |
 | `nodeRegistration.name` | Node name; must match the OpenStack instance name for the CCM. |
 | `kubeletExtraArgs` | List of `{name, value}` passed to kubelet; sets `cloud-provider=external`. |
+| `extraArgs` | List of `{name, value}` that overrides control-plane or etcd flags; used to expose their metrics. |
 | Bootstrap token | Short-lived credential that lets workers join. |
 | `kubeProxyReplacement=false` | Cilium leaves Service handling to kube-proxy; `kube_proxy_replacement = true` reverses this. |
 | Cluster-pool IPAM | Cilium allocates pod IPs from `clusterPoolIPv4PodCIDRList`. |

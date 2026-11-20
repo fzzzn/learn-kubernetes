@@ -21,6 +21,11 @@ grafana:
       jsonData:
         maxLines: 1000
 
+# kube-proxy is absent when kube_proxy_replacement = true, so its ServiceMonitor
+# and KubeProxyDown rule could only ever fire.
+kubeProxy:
+  enabled: false
+
 prometheus:
   prometheusSpec:
     retention: 7d

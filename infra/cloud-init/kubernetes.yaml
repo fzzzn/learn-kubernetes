@@ -87,6 +87,21 @@ write_files:
         certSANs:
           - ${control_plane_ip}
           - ${floating_ip}
+      # kubeadm binds these metrics endpoints to 127.0.0.1; Prometheus scrapes
+      # them over the node IP, so rebind them to all interfaces.
+      controllerManager:
+        extraArgs:
+          - name: bind-address
+            value: 0.0.0.0
+      scheduler:
+        extraArgs:
+          - name: bind-address
+            value: 0.0.0.0
+      etcd:
+        local:
+          extraArgs:
+            - name: listen-metrics-urls
+              value: http://0.0.0.0:2381
       KUBEADM
           chmod 0600 /etc/kubernetes/kubeadm-init.yaml
 

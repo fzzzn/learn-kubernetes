@@ -83,7 +83,10 @@ kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:909
 ```
 
 Open <http://localhost:9090/targets>. The `alloy` and `loki` targets must be
-`UP`; the Alloy dashboard has no data until they are.
+`UP`; the Alloy dashboard has no data until they are. `kube-controller-manager`,
+`kube-scheduler`, and `kube-etcd` are `UP` as well, because the bootstrap rebinds
+those metrics endpoints to `0.0.0.0`. There is no `kube-proxy` target: the values
+file disables that monitor for kube-proxy-free clusters.
 
 ## Open Grafana
 
@@ -194,7 +197,7 @@ on every request, so only the Secret needs updating:
 
 ```bash
 printf 'admin:%s\n' "$(openssl passwd -apr1 'new-password')" > /tmp/htpasswd
-kubectl -n kube-system create secret generic hubble-auth \
+kubectl -n monitoring create secret generic hubble-auth \
   --from-file=htpasswd=/tmp/htpasswd --dry-run=client -o yaml | kubectl apply -f -
 ```
 

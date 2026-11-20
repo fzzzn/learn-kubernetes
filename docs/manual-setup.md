@@ -197,6 +197,19 @@ apiServer:
   certSANs:
     - 192.168.10.10
     - 160.20.x.x
+controllerManager:
+  extraArgs:
+    - name: bind-address
+      value: 0.0.0.0
+scheduler:
+  extraArgs:
+    - name: bind-address
+      value: 0.0.0.0
+etcd:
+  local:
+    extraArgs:
+      - name: listen-metrics-urls
+        value: http://0.0.0.0:2381
 EOF
 chmod 0600 /etc/kubernetes/kubeadm-init.yaml
 

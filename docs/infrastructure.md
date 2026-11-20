@@ -49,6 +49,12 @@ Service traffic. Setting it to `true` runs `kubeadm init` with
 `--skip-phases=addon/kube-proxy`, points Cilium at the control-plane address
 (`k8sServiceHost`/`k8sServicePort`), and enables Hubble (relay and UI).
 
+kubeadm binds the controller-manager and scheduler metrics to `127.0.0.1` and
+does not expose etcd metrics, so nothing outside the node can scrape them. The
+bootstrap overrides that with `bind-address: 0.0.0.0` for both components and
+`listen-metrics-urls: http://0.0.0.0:2381` for etcd. The cluster security group
+already allows node-to-node traffic, so no extra rule is needed.
+
 The variable only takes effect on a fresh cluster. An existing node keeps its
 kubelet configuration and kube-proxy DaemonSet, so switch it with `destroy`
 then `apply`, not by replacing instances. Verify the result with
