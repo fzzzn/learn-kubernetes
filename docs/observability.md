@@ -162,6 +162,43 @@ public internet and port 80 to be reachable. If the name is internal only, use a
 DNS-01 solver or a self-signed issuer instead. The floating IP changes on a
 rebuild, so update the DNS record afterwards.
 
+## Expose Hubble UI
+
+`manifests/observability/hubble-gateway.yaml` publishes the Hubble UI on
+`https://hubble.local.my.id` with the same Gateway API and Let's Encrypt setup.
+It creates a second Octavia load balancer, so this hostname gets its own
+floating IP.
+
+The HTTP-01 solver is bound to a single Gateway, which is why the file defines
+its own `letsencrypt-prod-hubble` issuer. Keep its ACME email in sync with
+`grafana-gateway.yaml`.
+
+Apply it after the prerequisites in [tls.md](tls.md):
+
+```bash
+kubectl apply -f manifests/observability/hubble-gateway.yaml
+kubectl -n kube-system get service cilium-gateway-hubble
+```
+
+Point an `A` record for `hubble.local.my.id` at that floating IP, then watch the
+certificate:
+
+```bash
+kubectl -n kube-system get certificate,challenge
+kubectl -n kube-system get gateway hubble
+curl -I https://hubble.local.my.id
+```
+
+> Hubble UI has no authentication. Anyone who can reach the hostname can see
+> pod-to-pod flows and DNS queries for the whole cluster. Keep it off untrusted
+> networks, or remove it when you are done:
+
+```bash
+kubectl delete -f manifests/observability/hubble-gateway.yaml
+```
+
+Cilium then deletes the Octavia load balancer and its floating IP.
+
 ## Uninstall
 
 ```bash
@@ -171,7 +208,14 @@ kubectl delete namespace monitoring
 
 All three claims use `csi-cinder-sc-delete`, so deleting the namespace also
 deletes the Cinder volumes. Nothing is left behind. Deleting the namespace also
-removes the Gateway, and Cilium then deletes the Octavia load balancer behind it.
+removes the Grafana Gateway, and Cilium then deletes the Octavia load balancer
+behind it.
+
+The Hubble Gateway lives in `kube-system`, so remove it separately:
+
+```bash
+kubectl delete -f manifests/observability/hubble-gateway.yaml
+```
 
 ## Troubleshooting
 

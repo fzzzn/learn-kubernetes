@@ -6,7 +6,7 @@
 | [setup.md](setup.md) | Deploy the cluster with OpenTofu, then verify nodes, storage, load balancers, and kubeconfig. |
 | [upgrade.md](upgrade.md) | Upgrade Kubernetes, Cilium, the OpenStack CCM, and Cinder CSI, in place or by rebuilding. |
 | [tls.md](tls.md) | Terminate TLS with Cilium Gateway API and cert-manager. |
-| [observability.md](observability.md) | Install Grafana, Prometheus, Loki, and Alloy for metrics and logs. |
+| [observability.md](observability.md) | Metrics, logs, dashboards, and public HTTPS access to Grafana and Hubble. |
 | [manual-setup.md](manual-setup.md) | Build the same cluster by hand, step by step, without OpenTofu or cloud-init. |
 | [rebuild.md](rebuild.md) | Clean up in-cluster resources, destroy the stack, and rebuild from scratch. |
 | [infrastructure.md](infrastructure.md) | The `infra/` OpenTofu layout, defaults, outputs, storage, and security groups. |
