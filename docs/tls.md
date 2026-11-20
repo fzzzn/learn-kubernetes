@@ -206,9 +206,10 @@ does not need port 80 or a public challenge route, and it also works for
 wildcard names.
 
 `gatewayHTTPRoute.parentRefs` accepts a single Gateway, so one issuer can only
-solve challenges for one hostname. Give each Gateway its own ClusterIssuer; the
-repository uses `letsencrypt-prod` for Grafana and `letsencrypt-prod-hubble` for
-Hubble.
+solve challenges for one Gateway. A Gateway can still serve several hostnames,
+and a single Certificate can list several `dnsNames`; the repository does both
+with the `public` Gateway. Only split into separate Gateways when you need
+separate load balancers, and give each one its own issuer.
 
 ### Certificate
 

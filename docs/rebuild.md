@@ -52,8 +52,7 @@ If a Gateway exists, delete it before the loop. Cilium owns the
 
 ```bash
 kubectl get gateway --all-namespaces
-kubectl -n monitoring delete gateway grafana
-kubectl -n kube-system delete gateway hubble
+kubectl -n monitoring delete gateway public
 ```
 
 Delete the Octavia load balancers behind `LoadBalancer` Services:
@@ -163,12 +162,11 @@ cluster is gone. These add-ons are not part of the bootstrap:
 | Add-on | Install guide |
 |---|---|
 | Gateway API CRDs, Cilium `gatewayAPI.enabled`, cert-manager | [tls.md](tls.md) |
-| Grafana, Prometheus, Loki, Alloy, and the Grafana and Hubble Gateways | [observability.md](observability.md) |
+| Grafana, Prometheus, Loki, Alloy, and the public Gateway for Grafana and Hubble | [observability.md](observability.md) |
 
-Install them in that order. The Gateways reference the `cilium` GatewayClass and
-the `letsencrypt-prod` issuers from tls.md and observability.md. The Cilium
-upgrade there uses `--reuse-values`, so the kube-proxy-free settings from
-cloud-init are preserved.
+Install them in that order. The Gateway references the `cilium` GatewayClass and
+the `letsencrypt-prod` issuer from tls.md. The Cilium upgrade there uses
+`--reuse-values`, so the kube-proxy-free settings from cloud-init are preserved.
 
 The cluster is fully functional without them; nothing in `infra/` depends on
 these add-ons.

@@ -113,98 +113,77 @@ repository and never commit the real password.
   from the control-plane components.
 - **Explore** with the `Prometheus` datasource: `up` shows every scrape target.
 
-## Expose Grafana with Gateway API
+## Expose Grafana and Hubble with Gateway API
 
-`manifests/observability/grafana-gateway.yaml` publishes Grafana on
-`https://grafana.local.my.id`. Cilium creates a `LoadBalancer` Service, which
-the OpenStack CCM turns into an Octavia load balancer with a floating IP.
+`manifests/observability/gateway.yaml` publishes both hostnames through one
+Cilium Gateway, so they share a single Octavia load balancer and floating IP:
+
+| Hostname | Backend |
+|---|---|
+| `grafana.local.my.id` | `kube-prometheus-stack-grafana` |
+| `hubble.local.my.id` | `hubble-auth`, an nginx proxy in front of `hubble-ui` |
 
 This needs the Gateway API CRDs, `gatewayAPI.enabled=true`, and cert-manager with
 `config.gatewayAPI.enabled=true`, as described in [tls.md](tls.md). It also needs
 Cilium's kube-proxy replacement. None of that is part of the bootstrap, so repeat
 the Cilium and cert-manager steps after a rebuild.
 
-The file contains a `letsencrypt-prod` ClusterIssuer. If you already created one
-from [tls.md](tls.md), keep a single copy and use the same ACME email in both
-places, otherwise the apply overwrites the existing issuer.
+Hubble itself is enabled by `kube_proxy_replacement = true`. Both Services must
+exist before its routes work:
+
+```bash
+kubectl -n kube-system get service hubble-ui hubble-relay
+```
+
+The file contains a `letsencrypt-prod` ClusterIssuer whose HTTP-01 solver points
+at the `public` Gateway. If you already created one from [tls.md](tls.md), keep a
+single copy and use the same ACME email in both places, otherwise the apply
+overwrites the existing issuer.
+
+One `Certificate` carries both names, because `gatewayHTTPRoute.parentRefs`
+accepts a single Gateway. Renewal fails for both names if either `A` record is
+missing.
 
 Edit the ACME email in the ClusterIssuer, then apply:
 
 ```bash
-kubectl apply -f manifests/observability/grafana-gateway.yaml
+kubectl apply -f manifests/observability/gateway.yaml
 ```
 
-Read the floating IP and point an `A` record at it:
+Read the floating IP and point both `A` records at it:
 
 ```bash
-kubectl -n monitoring get service cilium-gateway-grafana
+kubectl -n monitoring get service cilium-gateway-public
 ```
 
 Then watch the certificate and the Gateway:
 
 ```bash
 kubectl -n monitoring get certificate,challenge
-kubectl -n monitoring get gateway grafana
+kubectl -n monitoring get gateway public
 ```
 
 Expected: `Certificate` and `Challenge` become ready, the Gateway reports
-`PROGRAMMED=True`, `https://grafana.local.my.id` serves a valid certificate, and
-`http://` redirects with `301`.
+`PROGRAMMED=True`, both hostnames serve a valid certificate, and `http://`
+redirects with `301`.
 
 ```bash
-kubectl -n monitoring get httproute
+kubectl -n monitoring get httproute -A
 curl -I https://grafana.local.my.id
-curl -I http://grafana.local.my.id
-```
-
-HTTP-01 needs `grafana.local.my.id` to resolve to the load balancer from the
-public internet and port 80 to be reachable. If the name is internal only, use a
-DNS-01 solver or a self-signed issuer instead. The floating IP changes on a
-rebuild, so update the DNS record afterwards.
-
-## Expose Hubble UI
-
-`manifests/observability/hubble-gateway.yaml` publishes the Hubble UI on
-`https://hubble.local.my.id` with the same Gateway API and Let's Encrypt setup.
-It creates a second Octavia load balancer, so this hostname gets its own
-floating IP.
-
-This needs Hubble itself, which the bootstrap enables only when
-`kube_proxy_replacement = true`. Both Services must exist first:
-
-```bash
-kubectl -n kube-system get service hubble-ui hubble-relay
-```
-
-The HTTP-01 solver is bound to a single Gateway, which is why the file defines
-its own `letsencrypt-prod-hubble` issuer. Keep its ACME email in sync with
-`grafana-gateway.yaml`.
-
-Apply it after the prerequisites in [tls.md](tls.md):
-
-```bash
-kubectl apply -f manifests/observability/hubble-gateway.yaml
-kubectl -n kube-system get service cilium-gateway-hubble
-```
-
-Point an `A` record for `hubble.local.my.id` at that floating IP, then watch the
-certificate:
-
-```bash
-kubectl -n kube-system get certificate,challenge
-kubectl -n kube-system get gateway hubble
 curl -s -o /dev/null -w '%{http_code}\n' https://hubble.local.my.id/
 curl -s -o /dev/null -w '%{http_code}\n' -u admin:changeme https://hubble.local.my.id/
 ```
 
-The first `curl` returns `401` (no credentials), the second `200`.
+The Hubble requests return `401` without credentials and `200` with them. Open
+`https://hubble.local.my.id`, log in, and pick a namespace. Flows appear once
+there is traffic; the connection indicator in the header turns green when the UI
+reaches `hubble-relay`. An empty list usually means the namespace filter matches
+nothing rather than a broken relay.
 
-Open `https://hubble.local.my.id`, log in, and pick a namespace. Flows appear
-once there is traffic; the connection indicator in the header turns green when
-the UI reaches `hubble-relay`. An empty list usually means the namespace filter
-matches nothing rather than a broken relay.
-
-The floating IP changes on a rebuild, so update the `A` record afterwards.
+HTTP-01 needs both names to resolve to the load balancer from the public internet
+and port 80 to be reachable. If the names are internal only, use a DNS-01 solver
+or a self-signed issuer instead. The floating IP changes on a rebuild, so update
+both records afterwards.
 
 > Hubble UI has no authentication of its own, so the manifest puts an nginx
 > proxy (`hubble-auth`) in front of it with HTTP basic auth. Log in as `admin`
@@ -219,18 +198,18 @@ kubectl -n kube-system create secret generic hubble-auth \
   --from-file=htpasswd=/tmp/htpasswd --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-`kubectl apply -f manifests/observability/hubble-gateway.yaml` writes the
-placeholder back, so also replace the hash in the manifest if you want the
-repository to match the cluster.
+`kubectl apply -f manifests/observability/gateway.yaml` writes the placeholder
+back, so also replace the hash in the manifest if you want the repository to
+match the cluster.
 
 Basic auth is one shared credential with no logout and no per-user audit. For
 single sign-on, replace `hubble-auth` with `oauth2-proxy` in front of the same
 Service and keep the route unchanged.
 
-Remove it when you are done:
+Remove the exposure when you are done:
 
 ```bash
-kubectl delete -f manifests/observability/hubble-gateway.yaml
+kubectl delete -f manifests/observability/gateway.yaml
 ```
 
 Cilium then deletes the Octavia load balancer and its floating IP.
@@ -244,14 +223,8 @@ kubectl delete namespace monitoring
 
 All three claims use `csi-cinder-sc-delete`, so deleting the namespace also
 deletes the Cinder volumes. Nothing is left behind. Deleting the namespace also
-removes the Grafana Gateway, and Cilium then deletes the Octavia load balancer
-behind it.
-
-The Hubble Gateway lives in `kube-system`, so remove it separately:
-
-```bash
-kubectl delete -f manifests/observability/hubble-gateway.yaml
-```
+removes the public Gateway and the Hubble auth proxy, and Cilium then deletes the
+Octavia load balancer behind it.
 
 ## Troubleshooting
 
@@ -260,7 +233,7 @@ kubectl delete -f manifests/observability/hubble-gateway.yaml
 | `no org id` in Grafana or Alloy logs | Loki runs with multi-tenancy (`auth_enabled: true`) and the request has no `X-Scope-OrgID` header. | The values file sets `loki.auth_enabled: false`. Re-run the Loki install after changing it. |
 | Grafana shows no logs | Alloy cannot reach Loki, or the datasource URL is wrong. | `kubectl -n monitoring logs ds/alloy` and check the push URL. |
 | PVC stays `Pending` | The StorageClass name does not exist. | `kubectl get storageclass` and fix `storageClassName` in the values files. |
-| Browser keeps asking for the Hubble password | The Secret holds a different htpasswd than the one you type, or the browser cached an old credential | Re-apply the Secret as shown in [Expose Hubble UI](#expose-hubble-ui) and reopen the page in a private window. |
+| Browser keeps asking for the Hubble password | The Secret holds a different htpasswd than the one you type, or the browser cached an old credential | Re-apply the Secret as shown in [Expose Hubble UI](#expose-grafana-and-hubble-with-gateway-api) and reopen the page in a private window. |
 | Hubble UI loads but shows no flows | `hubble-relay` is not ready, or the selected namespace is idle | `kubectl -n kube-system get pods -l k8s-app=hubble-relay` and pick another namespace. |
 | `Certificate` stays `READY=False` for a public hostname | The DNS `A` record is missing or still cached, so HTTP-01 cannot validate | `dig +short @1.1.1.1 <hostname>`, fix the record, then `kubectl -n <namespace> delete challenge --all`. |
 
@@ -276,8 +249,7 @@ kubectl delete -f manifests/observability/hubble-gateway.yaml
   Prometheus `serviceMonitorSelector` together.
 - The values file sets `grafana.ini.server.root_url` to the public hostname, so
   links in alerts and emails work. Change it if you use a different domain.
-- Every public hostname gets its own Octavia load balancer and floating IP, so
-  Grafana and Hubble together use two of each. Check your quota before adding
-  more.
+- Both public hostnames share one Octavia load balancer and floating IP. Each
+  additional Gateway costs another pair, so check your quota before adding one.
 - The commands do not pin chart versions. Add `--version <chart-version>` to
   each install for reproducible upgrades.

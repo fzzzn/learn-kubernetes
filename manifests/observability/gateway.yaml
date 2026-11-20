@@ -1,10 +1,49 @@
-# Publishes Hubble UI on https://hubble.local.my.id through Cilium Gateway API.
-# Cilium creates its own LoadBalancer Service, so this hostname gets a separate
-# Octavia load balancer and floating IP from the Grafana one.
+# Publishes Grafana and the Hubble UI through one Cilium Gateway, so both
+# hostnames share a single Octavia load balancer and floating IP. Cilium creates
+# the LoadBalancer Service; the CCM turns it into an Octavia load balancer.
 #
-# The HTTP-01 solver is bound to a single Gateway, which is why this file has
-# its own ClusterIssuer. Keep the ACME email in sync with grafana-gateway.yaml.
+# Requires Cilium kube-proxy replacement, the Gateway API CRDs,
+# gatewayAPI.enabled=true, and cert-manager config.gatewayAPI.enabled=true.
+# See docs/tls.md.
 #
+# One Certificate covers both names because HTTP-01 through the Gateway can only
+# reference a single parent Gateway. Renewal fails for both names if either A
+# record is missing.
+#
+# Change the ACME email before applying. If a letsencrypt-prod ClusterIssuer
+# already exists, keep one copy and use the same email.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@local.my.id
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: public
+                namespace: monitoring
+                kind: Gateway
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: public-tls
+  namespace: monitoring
+spec:
+  secretName: public-tls
+  dnsNames:
+    - grafana.local.my.id
+    - hubble.local.my.id
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+---
 # Hubble UI has no authentication of its own, so an nginx proxy in front of it
 # asks for HTTP basic auth. Credentials only travel over the HTTPS listener; the
 # HTTP listener redirects before any request reaches the proxy.
@@ -12,42 +51,11 @@
 # The htpasswd below is the lab placeholder for user "admin" with password
 # "changeme". Re-applying this file resets it, so replace the hash here or
 # update the Secret out of band (see docs/observability.md).
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod-hubble
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: admin@local.my.id
-    privateKeySecretRef:
-      name: letsencrypt-prod-hubble
-    solvers:
-      - http01:
-          gatewayHTTPRoute:
-            parentRefs:
-              - name: hubble
-                namespace: kube-system
-                kind: Gateway
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: hubble-tls
-  namespace: kube-system
-spec:
-  secretName: hubble-tls
-  dnsNames:
-    - hubble.local.my.id
-  issuerRef:
-    name: letsencrypt-prod-hubble
-    kind: ClusterIssuer
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: hubble-auth
-  namespace: kube-system
+  namespace: monitoring
 data:
   default.conf: |
     map $http_upgrade $connection_upgrade {
@@ -85,7 +93,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: hubble-auth
-  namespace: kube-system
+  namespace: monitoring
 type: Opaque
 stringData:
   # admin / changeme
@@ -95,7 +103,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hubble-auth
-  namespace: kube-system
+  namespace: monitoring
 spec:
   replicas: 2
   selector:
@@ -140,7 +148,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hubble-auth
-  namespace: kube-system
+  namespace: monitoring
 spec:
   selector:
     app: hubble-auth
@@ -149,25 +157,24 @@ spec:
       port: 80
       targetPort: http
 ---
+# Listeners carry no hostname, so the routes below can match any name.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: hubble
-  namespace: kube-system
+  name: public
+  namespace: monitoring
 spec:
   gatewayClassName: cilium
   listeners:
     - name: http
       protocol: HTTP
       port: 80
-      hostname: hubble.local.my.id
       allowedRoutes:
         namespaces:
           from: Same
     - name: https
       protocol: HTTPS
       port: 443
-      hostname: hubble.local.my.id
       allowedRoutes:
         namespaces:
           from: Same
@@ -175,16 +182,50 @@ spec:
         mode: Terminate
         certificateRefs:
           - kind: Secret
-            name: hubble-tls
+            name: public-tls
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: public
+      sectionName: https
+  hostnames:
+    - grafana.local.my.id
+  rules:
+    - backendRefs:
+        - name: kube-prometheus-stack-grafana
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana-redirect
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: public
+      sectionName: http
+  hostnames:
+    - grafana.local.my.id
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: hubble
-  namespace: kube-system
+  namespace: monitoring
 spec:
   parentRefs:
-    - name: hubble
+    - name: public
       sectionName: https
   hostnames:
     - hubble.local.my.id
@@ -197,10 +238,10 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: hubble-redirect
-  namespace: kube-system
+  namespace: monitoring
 spec:
   parentRefs:
-    - name: hubble
+    - name: public
       sectionName: http
   hostnames:
     - hubble.local.my.id

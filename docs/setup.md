@@ -183,7 +183,7 @@ them.
 
 The same flag also enables Hubble and its UI. To publish the UI on
 `https://hubble.local.my.id`, see
-[observability.md](observability.md#expose-hubble-ui).
+[observability.md](observability.md#expose-grafana-and-hubble-with-gateway-api).
 
 To tear the cluster down and rebuild it from scratch, see
 [rebuild.md](rebuild.md). To move to newer Kubernetes or Cilium versions, see
