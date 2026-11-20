@@ -7,6 +7,12 @@ grafana:
     server:
       # Matches the Gateway hostname; used for links in alerts and emails.
       root_url: https://grafana.local.my.id
+  # Users, API keys, and dashboard edits live on a Cinder volume, so they
+  # survive pod restarts. adminPassword above only seeds an empty database.
+  persistence:
+    enabled: true
+    storageClassName: csi-cinder-sc-delete
+    size: 1Gi
   additionalDataSources:
     - name: Loki
       type: loki

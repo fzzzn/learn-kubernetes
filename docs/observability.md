@@ -67,7 +67,8 @@ kubectl -n monitoring get pvc
 Expected:
 
 - every pod `Running`, with one `alloy-*` pod per node
-- two claims `Bound`: Prometheus and Loki, both on `csi-cinder-sc-delete`
+- three claims `Bound`: Prometheus, Loki, and Grafana, all on
+  `csi-cinder-sc-delete`
 
 Check that Alloy is reading logs:
 
@@ -91,8 +92,20 @@ kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
 ```
 
 Open <http://localhost:3000> and log in as `admin` with the password from
-`manifests/observability/kube-prometheus-stack-values.yaml` (`changeme` by
-default; change it before exposing Grafana).
+`manifests/observability/kube-prometheus-stack-values.yaml` (`changeme` in the
+repository; change it before exposing Grafana).
+
+`adminPassword` only seeds an empty database. After the first start, change the
+password in the UI or with:
+
+```bash
+kubectl -n monitoring exec deploy/kube-prometheus-stack-grafana -c grafana -- \
+  grafana cli admin reset-admin-password '<new-password>'
+```
+
+Grafana keeps its database on a 1Gi Cinder volume, so the password, extra users,
+API keys, and dashboard edits survive pod restarts. Keep a placeholder in the
+repository and never commit the real password.
 
 - **Dashboards** contain the Kubernetes and node dashboards, the ten Loki
   dashboards, and the `Alloy` dashboard.
@@ -156,9 +169,9 @@ helm -n monitoring uninstall alloy loki kube-prometheus-stack
 kubectl delete namespace monitoring
 ```
 
-Both claims use `csi-cinder-sc-delete`, so deleting the namespace also deletes
-the Cinder volumes. Nothing is left behind. Deleting the namespace also removes
-the Gateway, and Cilium then deletes the Octavia load balancer behind it.
+All three claims use `csi-cinder-sc-delete`, so deleting the namespace also
+deletes the Cinder volumes. Nothing is left behind. Deleting the namespace also
+removes the Gateway, and Cilium then deletes the Octavia load balancer behind it.
 
 ## Troubleshooting
 
