@@ -3,6 +3,8 @@
 deploymentMode: SingleBinary
 
 loki:
+  # Single tenant: no X-Scope-OrgID header needed from Alloy or Grafana.
+  auth_enabled: false
   commonConfig:
     replication_factor: 1
   storage:

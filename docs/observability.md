@@ -94,6 +94,14 @@ kubectl delete namespace monitoring
 Both claims use `csi-cinder-sc-delete`, so deleting the namespace also deletes
 the Cinder volumes. Nothing is left behind.
 
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `no org id` in Grafana or Alloy logs | Loki runs with multi-tenancy (`auth_enabled: true`) and the request has no `X-Scope-OrgID` header. | The values file sets `loki.auth_enabled: false`. Re-run the Loki install after changing it. |
+| Grafana shows no logs | Alloy cannot reach Loki, or the datasource URL is wrong. | `kubectl -n monitoring logs ds/alloy` and check the push URL. |
+| PVC stays `Pending` | The StorageClass name does not exist. | `kubectl get storageclass` and fix `storageClassName` in the values files. |
+
 ## Notes
 
 - Prometheus keeps 7 days of metrics. Raise `retention` and the volume size in
