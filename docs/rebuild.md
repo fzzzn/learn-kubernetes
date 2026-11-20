@@ -72,10 +72,31 @@ load balancer still uses it. Wait until this list is empty:
 openstack loadbalancer list
 ```
 
-Delete the claims. With the default `csi-cinder-sc-delete` StorageClass this
-also removes the Cinder volumes:
+Uninstall the stack that owns the claims before deleting the claims themselves.
+A PVC carries the `pvc-protection` finalizer until no pod mounts it, so deleting
+it while Prometheus or Loki still runs leaves every claim in `Terminating`, and
+the next command waits forever for them to go:
 
 ```bash
+helm -n monitoring uninstall alloy loki kube-prometheus-stack
+kubectl -n monitoring delete namespace monitoring
+```
+
+Scaling to zero is not enough. A `Prometheus` custom resource sets the StatefulSet
+replica count back to one, so the pod, and sometimes a new claim, come back.
+Verify that nothing still mounts a claim:
+
+```bash
+kubectl get pods --all-namespaces -o json |
+  jq -r '.items[] | select(.spec.volumes[]?.persistentVolumeClaim) |
+    "\(.metadata.namespace)/\(.metadata.name)"'
+```
+
+Delete the remaining claims. With the default `csi-cinder-sc-delete` StorageClass
+this also removes the Cinder volumes:
+
+```bash
+kubectl get pvc --all-namespaces
 kubectl delete pvc --all-namespaces --all
 ```
 
@@ -86,6 +107,10 @@ volumes manually if they are no longer needed:
 openstack volume list
 openstack volume delete <volume-id>
 ```
+
+If a claim stays `Terminating` anyway, `kubectl -n monitoring describe pvc <name>`
+names the finalizer, and the pod that still mounted it was missed above. Delete
+that pod, not the finalizer.
 
 ## Destroy
 
