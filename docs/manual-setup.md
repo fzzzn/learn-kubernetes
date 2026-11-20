@@ -273,6 +273,12 @@ cilium install \
 kubectl -n kube-system rollout status daemonset/cilium --timeout=10m
 ```
 
+To run without kube-proxy, add `--skip-phases=addon/kube-proxy` to `kubeadm
+init` above and replace the last value with `--set "kubeProxyReplacement=true"
+--set "k8sServiceHost=192.168.10.10" --set "k8sServicePort=6443"`. Add `--set
+hubble.enabled=true --set hubble.relay.enabled=true --set hubble.ui.enabled=true`
+for Hubble.
+
 Do not run `cilium status --wait` yet: with `cloud-provider=external` the node
 addresses are published by the CCM, so the API server cannot proxy to kubelets
 until the CCM runs.

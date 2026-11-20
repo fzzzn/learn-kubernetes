@@ -113,6 +113,9 @@ cloud-init runs on every node at first boot
                         + remove the uninitialized taint
 ```
 
+With `kube_proxy_replacement = true`, Service and NodePort traffic in steps 3
+and 4 is handled by Cilium's eBPF datapath and kube-proxy is not installed.
+
 ## Components and versions
 
 | Component | Version | Source |
@@ -163,7 +166,7 @@ All versions are pinned in `infra/variables.tf`.
 | etcd | Key-value store holding all cluster state. |
 | kube-scheduler | Assigns pods to nodes. |
 | kube-controller-manager | Runs built-in control loops. |
-| kube-proxy | Programs iptables/IPVS for Service traffic (kept in this cluster). |
+| kube-proxy | Programs iptables/IPVS for Service traffic (default; absent when Cilium replaces it). |
 | CNI | Container network interface; Cilium is the implementation here. |
 | CSI | Container storage interface; Cinder CSI is the implementation here. |
 | CCM | Cloud controller manager; bridges Kubernetes and OpenStack. |
@@ -190,7 +193,7 @@ All versions are pinned in `infra/variables.tf`.
 | `nodeRegistration.name` | Node name; must match the OpenStack instance name for the CCM. |
 | `kubeletExtraArgs` | List of `{name, value}` passed to kubelet; sets `cloud-provider=external`. |
 | Bootstrap token | Short-lived credential that lets workers join. |
-| `kubeProxyReplacement=false` | Cilium leaves Service handling to kube-proxy. |
+| `kubeProxyReplacement=false` | Cilium leaves Service handling to kube-proxy; `kube_proxy_replacement = true` reverses this. |
 | Cluster-pool IPAM | Cilium allocates pod IPs from `clusterPoolIPv4PodCIDRList`. |
 | Cilium agent / operator | Per-node datapath agent and cluster-wide controller. |
 | cilium-envoy | Envoy daemon used for L7 policy and ingress features. |

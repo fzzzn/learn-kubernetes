@@ -135,6 +135,12 @@ variable "cilium_cli_version" {
   default     = "v0.20.3"
 }
 
+variable "kube_proxy_replacement" {
+  description = "Run Cilium in kube-proxy-free mode; also enables Hubble"
+  type        = bool
+  default     = false
+}
+
 variable "helm_version" {
   description = "Helm version downloaded on the control plane"
   type        = string

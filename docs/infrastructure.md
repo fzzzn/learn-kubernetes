@@ -43,9 +43,18 @@ initializes kubeadm, creates the bootstrap token, and installs Cilium through
 the Cilium CLI. Workers retry `kubeadm join` against the control-plane private
 IP until the API server is reachable and the token exists.
 
-Cilium is installed with `kubeProxyReplacement=false`, so kube-proxy remains in
-charge of Service traffic. The Cilium pod CIDR is set from `pod_network_cidr`
-and must match the kubeadm `networking.podSubnet` value.
+Cilium is installed with `kubeProxyReplacement` set from
+`kube_proxy_replacement`. The default `false` keeps kube-proxy in charge of
+Service traffic. Setting it to `true` runs `kubeadm init` with
+`--skip-phases=addon/kube-proxy`, points Cilium at the control-plane address
+(`k8sServiceHost`/`k8sServicePort`), and enables Hubble (relay and UI).
+
+The variable only takes effect on a fresh cluster. An existing node keeps its
+kubelet configuration and kube-proxy DaemonSet, so switch it with `destroy`
+then `apply`, not by replacing instances.
+
+The Cilium pod CIDR is set from `pod_network_cidr` and must match the kubeadm
+`networking.podSubnet` value.
 
 Kubelet runs with `cloud-provider=external` on every node, so kubelet does not
 publish node addresses; the CCM does. Until it runs, the API server cannot

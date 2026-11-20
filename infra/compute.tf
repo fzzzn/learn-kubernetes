@@ -66,6 +66,7 @@ resource "openstack_compute_instance_v2" "vm" {
     bootstrap_token                         = "${random_string.bootstrap_token_id.result}.${random_string.bootstrap_token_secret.result}"
     cilium_version                          = var.cilium_version
     cilium_cli_version                      = var.cilium_cli_version
+    kube_proxy_replacement                  = var.kube_proxy_replacement
     helm_version                            = var.helm_version
     openstack_cloud_provider_chart_version  = var.openstack_cloud_provider_chart_version
     openstack_auth_url                      = var.openstack_auth_url

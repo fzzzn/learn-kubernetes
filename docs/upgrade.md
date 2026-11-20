@@ -41,8 +41,8 @@ make the new pins the source of truth again.
   Patch releases within a minor are safe.
 - **Upgrade Cilium one release at a time** and follow its upgrade guide for the
   target version. Patch upgrades are safe in place.
-- **Keep `kubeProxyReplacement=false`.** kube-proxy stays in charge of Service
-  traffic in this cluster.
+- **Keep `kube_proxy_replacement` unchanged.** Switching between kube-proxy and
+  Cilium's eBPF datapath is a rebuild, not an upgrade step.
 - **Snapshot etcd** before touching the control plane:
 
   ```bash
@@ -147,7 +147,7 @@ plane, so the API is briefly unavailable during `kubeadm upgrade apply`.
 ### 2. Cilium
 
 Install the matching CLI first, then upgrade. `cilium upgrade` reuses the values
-set by `cilium install` (pod CIDR and `kubeProxyReplacement=false`).
+set by `cilium install` (pod CIDR, `kubeProxyReplacement`, and Hubble).
 
 ```bash
 ARCH=amd64

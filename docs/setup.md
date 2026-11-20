@@ -21,8 +21,8 @@ tofu -chdir=infra apply
 The control plane initializes with kubeadm and installs:
 
 - Cilium through the Cilium CLI, with its pod CIDR kept in sync with
-  `pod_network_cidr` and `kubeProxyReplacement=false` so kube-proxy remains in
-  charge of Service traffic.
+  `pod_network_cidr`. The default `kube_proxy_replacement = false` leaves
+  Service traffic to kube-proxy; `true` removes kube-proxy and enables Hubble.
 - `openstack-cloud-controller-manager`, which initializes nodes with their
   OpenStack provider IDs and removes the external-cloud-provider taint.
 - `openstack-cinder-csi`, which provisions Cinder volumes through the
