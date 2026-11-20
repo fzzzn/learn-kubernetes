@@ -65,6 +65,13 @@ kubectl get service --all-namespaces \
   done
 ```
 
+Octavia deletes asynchronously, and `destroy` cannot remove the subnet while a
+load balancer still uses it. Wait until this list is empty:
+
+```bash
+openstack loadbalancer list
+```
+
 Delete the claims. With the default `csi-cinder-sc-delete` StorageClass this
 also removes the Cinder volumes:
 
@@ -165,8 +172,31 @@ cluster is gone. These add-ons are not part of the bootstrap:
 | Grafana, Prometheus, Loki, Alloy, and the public Gateway for Grafana and Hubble | [observability.md](observability.md) |
 
 Install them in that order. The Gateway references the `cilium` GatewayClass and
-the `letsencrypt-prod` issuer from tls.md. The Cilium upgrade there uses
+the `letsencrypt-prod` issuer described in tls.md. The Cilium upgrade there uses
 `--reuse-values`, so the kube-proxy-free settings from cloud-init are preserved.
+Gateway API and Hubble both need `kube_proxy_replacement = true`; with it off,
+the Gateway never becomes `PROGRAMMED`.
 
 The cluster is fully functional without them; nothing in `infra/` depends on
 these add-ons.
+
+## Reconnect DNS
+
+The Gateway's floating IP is created by the CCM, not by Terraform, so it changes
+on every rebuild. Nothing resolves to the new load balancer until the records are
+updated, and HTTP-01 cannot validate before that:
+
+```bash
+kubectl -n monitoring get service cilium-gateway-public
+```
+
+Point the `A` records for `grafana.local.my.id` and `hubble.local.my.id` at that
+address, then wait for the certificate:
+
+```bash
+kubectl -n monitoring get certificate,challenge
+```
+
+`public-tls` stays `READY=False` and the Gateway exposes only port 80 until both
+names resolve to the new address. One `Certificate` carries both names, so a
+missing record blocks the other one too.
