@@ -21,6 +21,9 @@ repository root, on a machine with `helm` and a working kubeconfig.
 - The cluster is up and `cilium status` is healthy.
 - The `csi-cinder-sc-delete` StorageClass exists, which the bootstrap creates.
 - `helm` is available. The control plane already has it at `/usr/local/bin/helm`.
+- For the Gateway exposure below, Cilium must run with kube-proxy replacement
+  (`kube_proxy_replacement = true`). Cilium's Gateway API controller does not
+  work with kube-proxy.
 
 ## Install
 
@@ -97,9 +100,54 @@ default; change it before exposing Grafana).
   from the control-plane components.
 - **Explore** with the `Prometheus` datasource: `up` shows every scrape target.
 
-To expose Grafana with Octavia instead of port-forwarding, change the Service to
-`type: LoadBalancer` and point DNS at the floating IP. Do that only after
-changing the admin password.
+## Expose Grafana with Gateway API
+
+`manifests/observability/grafana-gateway.yaml` publishes Grafana on
+`https://grafana.local.my.id`. Cilium creates a `LoadBalancer` Service, which
+the OpenStack CCM turns into an Octavia load balancer with a floating IP.
+
+This needs the Gateway API CRDs, `gatewayAPI.enabled=true`, and cert-manager with
+`config.gatewayAPI.enabled=true`, as described in [tls.md](tls.md). It also needs
+Cilium's kube-proxy replacement. None of that is part of the bootstrap, so repeat
+the Cilium and cert-manager steps after a rebuild.
+
+The file contains a `letsencrypt-prod` ClusterIssuer. If you already created one
+from [tls.md](tls.md), keep a single copy and use the same ACME email in both
+places, otherwise the apply overwrites the existing issuer.
+
+Edit the ACME email in the ClusterIssuer, then apply:
+
+```bash
+kubectl apply -f manifests/observability/grafana-gateway.yaml
+```
+
+Read the floating IP and point an `A` record at it:
+
+```bash
+kubectl -n monitoring get service cilium-gateway-grafana
+```
+
+Then watch the certificate and the Gateway:
+
+```bash
+kubectl -n monitoring get certificate,challenge
+kubectl -n monitoring get gateway grafana
+```
+
+Expected: `Certificate` and `Challenge` become ready, the Gateway reports
+`PROGRAMMED=True`, `https://grafana.local.my.id` serves a valid certificate, and
+`http://` redirects with `301`.
+
+```bash
+kubectl -n monitoring get httproute
+curl -I https://grafana.local.my.id
+curl -I http://grafana.local.my.id
+```
+
+HTTP-01 needs `grafana.local.my.id` to resolve to the load balancer from the
+public internet and port 80 to be reachable. If the name is internal only, use a
+DNS-01 solver or a self-signed issuer instead. The floating IP changes on a
+rebuild, so update the DNS record afterwards.
 
 ## Uninstall
 
@@ -109,7 +157,8 @@ kubectl delete namespace monitoring
 ```
 
 Both claims use `csi-cinder-sc-delete`, so deleting the namespace also deletes
-the Cinder volumes. Nothing is left behind.
+the Cinder volumes. Nothing is left behind. Deleting the namespace also removes
+the Gateway, and Cilium then deletes the Octavia load balancer behind it.
 
 ## Troubleshooting
 
@@ -129,5 +178,7 @@ the Cinder volumes. Nothing is left behind.
   `release: kube-prometheus-stack`. That label must match the Helm release name
   of the Grafana stack; if you rename it, update the values files and the
   Prometheus `serviceMonitorSelector` together.
+- The values file sets `grafana.ini.server.root_url` to the public hostname, so
+  links in alerts and emails work. Change it if you use a different domain.
 - The commands do not pin chart versions. Add `--version <chart-version>` to
   each install for reproducible upgrades.

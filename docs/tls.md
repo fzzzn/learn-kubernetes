@@ -27,32 +27,54 @@ other `type: LoadBalancer` Service.
 ## Prerequisites
 
 - Cilium is installed and `cilium status` reports `OK`.
+- Cilium runs with kube-proxy replacement, which the Gateway API controller
+  requires. This repository sets `kube_proxy_replacement = true` (see
+  [infrastructure.md](infrastructure.md)).
 - The cluster security group allows NodePort traffic from the subnet (it does
   by default, see [infrastructure.md](infrastructure.md)).
 - A DNS name you control, for example `app.example.com`.
 
 ### Gateway API CRDs
 
-Install the standard channel CRDs. Check the
-[Gateway API releases](https://github.com/kubernetes-sigs/gateway-api/releases)
-for the current version.
+Install the standard channel CRDs. Cilium 1.20 supports Gateway API v1.6.3;
+check the [Gateway API releases](https://github.com/kubernetes-sigs/gateway-api/releases)
+when you upgrade Cilium.
 
 ```bash
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+kubectl apply --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml
 ```
 
 ### Cilium Gateway API
 
-Recent Cilium releases enable Gateway API by default. Verify:
+The bootstrap installs Cilium without Gateway API, and the chart default is
+`gatewayAPI.enabled: false`. Install the CRDs first, then enable it. The
+upgrade reuses the existing values, so the kube-proxy-free settings, the API
+server address, and Hubble stay as they are.
+
+Check that kube-proxy replacement is already on:
 
 ```bash
-helm get values cilium -n kube-system | grep -i gatewayAPI
+kubectl -n kube-system exec ds/cilium -- cilium-dbg status --brief
 ```
 
-If it is not enabled:
+The output must contain `KubeProxyReplacement: True`. If it says `Disabled`,
+stop here: set `kube_proxy_replacement = true` and rebuild before enabling
+Gateway API. Switching in place is not supported, see
+[infrastructure.md](infrastructure.md).
 
 ```bash
-cilium upgrade --set gatewayAPI.enabled=true
+helm repo add cilium https://helm.cilium.io
+helm repo update
+
+helm upgrade cilium cilium/cilium \
+  --namespace kube-system \
+  --version 1.20.5 \
+  --reuse-values \
+  --set gatewayAPI.enabled=true
+
+kubectl -n kube-system rollout restart deployment/cilium-operator
+kubectl -n kube-system rollout restart daemonset/cilium
 kubectl -n kube-system rollout status daemonset/cilium --timeout=10m
 ```
 
@@ -62,6 +84,10 @@ Cilium creates a GatewayClass named `cilium`:
 kubectl get gatewayclass
 ```
 
+The bootstrap does not enable Gateway API, so after a `tofu destroy` + `apply`
+repeat this section. It is the only part of the TLS setup that is not
+reproducible from `infra/`.
+
 ### cert-manager
 
 ```bash
@@ -70,7 +96,16 @@ helm repo update
 
 helm upgrade --install cert-manager jetstack/cert-manager \
   --namespace cert-manager --create-namespace \
-  --set crds.enabled=true
+  --set crds.enabled=true \
+  --set config.gatewayAPI.enabled=true
+```
+
+`config.gatewayAPI.enabled=true` is required; without it the issuer and the
+Gateway resources are ignored. If cert-manager was already running before the
+Gateway API CRDs existed, restart it so it picks them up:
+
+```bash
+kubectl -n cert-manager rollout restart deployment/cert-manager
 ```
 
 ## Deploy the application
@@ -244,6 +279,9 @@ Service is `cilium-gateway-<gateway-name>`.
 The address belongs to the Octavia load balancer and changes if the Service is
 recreated, for example after `tofu destroy` + `apply`. Update DNS after a
 rebuild, or automate the record with your DNS provider.
+
+For a complete example, see [observability.md](observability.md), which exposes
+Grafana on `https://grafana.local.my.id`.
 
 ## Verify
 

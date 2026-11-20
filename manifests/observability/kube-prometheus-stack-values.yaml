@@ -3,6 +3,10 @@
 grafana:
   # Lab default. Change it before exposing Grafana outside the cluster.
   adminPassword: changeme
+  grafana.ini:
+    server:
+      # Matches the Gateway hostname; used for links in alerts and emails.
+      root_url: https://grafana.local.my.id
   additionalDataSources:
     - name: Loki
       type: loki
