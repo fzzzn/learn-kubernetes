@@ -39,6 +39,7 @@ infra/                    OpenTofu configuration
   *.tf                    Network, compute, security, variables, outputs
 manifests/                Helm values for optional add-ons
   observability/          Grafana, Prometheus, Loki, Alloy
+    dashboards/           Grafana dashboard ConfigMaps
 ```
 
 ## References

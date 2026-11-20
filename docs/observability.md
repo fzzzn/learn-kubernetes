@@ -42,7 +42,14 @@ helm upgrade --install loki grafana/loki \
 helm upgrade --install alloy grafana/alloy \
   --namespace monitoring \
   --values manifests/observability/alloy-values.yaml
+
+kubectl apply -f manifests/observability/dashboards/
 ```
+
+The Loki chart ships ten official dashboards (Writes, Reads, Chunks,
+Operational, and so on) plus their recording rules. The `alloy-dashboard`
+ConfigMap adds one dashboard for Alloy. Grafana's sidecar imports every
+ConfigMap labelled `grafana_dashboard: "1"` in its namespace.
 
 Loki comes before Alloy so the push endpoint already exists. Grafana can be
 installed in any order; the Loki datasource is resolved when you query it.
@@ -65,6 +72,15 @@ Check that Alloy is reading logs:
 kubectl -n monitoring logs ds/alloy --tail=20
 ```
 
+Check that Prometheus scrapes both:
+
+```bash
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090
+```
+
+Open <http://localhost:9090/targets>. The `alloy` and `loki` targets must be
+`UP`; the Alloy dashboard has no data until they are.
+
 ## Open Grafana
 
 ```bash
@@ -75,7 +91,8 @@ Open <http://localhost:3000> and log in as `admin` with the password from
 `manifests/observability/kube-prometheus-stack-values.yaml` (`changeme` by
 default; change it before exposing Grafana).
 
-- **Dashboards** already contain the Kubernetes and node dashboards.
+- **Dashboards** contain the Kubernetes and node dashboards, the ten Loki
+  dashboards, and the `Alloy` dashboard.
 - **Explore** with the `Loki` datasource: `{namespace="kube-system"}` shows logs
   from the control-plane components.
 - **Explore** with the `Prometheus` datasource: `up` shows every scrape target.
@@ -108,7 +125,9 @@ the Cinder volumes. Nothing is left behind.
   the values file if you need more.
 - Loki runs in single-binary mode with filesystem storage, which is enough for a
   lab. A production setup uses object storage and the scalable deployment mode.
-- The stack is not scraped by itself; add a `ServiceMonitor` if you want
-  Prometheus to monitor Loki or Alloy.
+- Loki and Alloy are scraped through ServiceMonitors labelled
+  `release: kube-prometheus-stack`. That label must match the Helm release name
+  of the Grafana stack; if you rename it, update the values files and the
+  Prometheus `serviceMonitorSelector` together.
 - The commands do not pin chart versions. Add `--version <chart-version>` to
   each install for reproducible upgrades.

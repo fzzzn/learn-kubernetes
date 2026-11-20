@@ -39,3 +39,17 @@ chunksCache:
   enabled: false
 resultsCache:
   enabled: false
+
+# Ship the chart's official Loki dashboards and their recording rules to
+# Grafana and Prometheus.
+monitoring:
+  dashboards:
+    enabled: true
+  rules:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
