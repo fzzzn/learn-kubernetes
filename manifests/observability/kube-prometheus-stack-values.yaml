@@ -1,0 +1,24 @@
+# Grafana, Prometheus, node-exporter, kube-state-metrics.
+# Chart: prometheus-community/kube-prometheus-stack
+grafana:
+  # Lab default. Change it before exposing Grafana outside the cluster.
+  adminPassword: changeme
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      jsonData:
+        maxLines: 1000
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: csi-cinder-sc-delete
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
