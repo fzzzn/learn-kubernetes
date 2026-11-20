@@ -5,8 +5,13 @@
 # The HTTP-01 solver is bound to a single Gateway, which is why this file has
 # its own ClusterIssuer. Keep the ACME email in sync with grafana-gateway.yaml.
 #
-# Hubble UI has no authentication: anyone who can reach this hostname can see
-# pod-to-pod flows and DNS queries for the whole cluster.
+# Hubble UI has no authentication of its own, so an nginx proxy in front of it
+# asks for HTTP basic auth. Credentials only travel over the HTTPS listener; the
+# HTTP listener redirects before any request reaches the proxy.
+#
+# The htpasswd below is the lab placeholder for user "admin" with password
+# "changeme". Re-applying this file resets it, so replace the hash here or
+# update the Secret out of band (see docs/observability.md).
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -37,6 +42,112 @@ spec:
   issuerRef:
     name: letsencrypt-prod-hubble
     kind: ClusterIssuer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-auth
+  namespace: kube-system
+data:
+  default.conf: |
+    map $http_upgrade $connection_upgrade {
+      default upgrade;
+      ''      close;
+    }
+
+    server {
+      listen 8080;
+      auth_basic "Hubble";
+      auth_basic_user_file /etc/nginx/auth/htpasswd;
+
+      # Probes must not require credentials.
+      location = /healthz {
+        auth_basic off;
+        access_log off;
+        return 200 "ok\n";
+      }
+
+      location / {
+        proxy_pass http://hubble-ui.kube-system.svc.cluster.local:80;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        # Flow streaming keeps responses open; do not buffer or time out early.
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+      }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hubble-auth
+  namespace: kube-system
+type: Opaque
+stringData:
+  # admin / changeme
+  htpasswd: admin:$apr1$.VCEytz4$Z0kVliecuxK9XC8MYJBiA/
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-auth
+  namespace: kube-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hubble-auth
+  template:
+    metadata:
+      labels:
+        app: hubble-auth
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.29-alpine
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/conf.d
+            - name: auth
+              mountPath: /etc/nginx/auth
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: hubble-auth
+        - name: auth
+          secret:
+            secretName: hubble-auth
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-auth
+  namespace: kube-system
+spec:
+  selector:
+    app: hubble-auth
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -79,7 +190,7 @@ spec:
     - hubble.local.my.id
   rules:
     - backendRefs:
-        - name: hubble-ui
+        - name: hubble-auth
           port: 80
 ---
 apiVersion: gateway.networking.k8s.io/v1

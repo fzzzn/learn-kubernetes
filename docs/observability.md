@@ -186,12 +186,34 @@ certificate:
 ```bash
 kubectl -n kube-system get certificate,challenge
 kubectl -n kube-system get gateway hubble
-curl -I https://hubble.local.my.id
+curl -s -o /dev/null -w '%{http_code}\n' https://hubble.local.my.id/
+curl -s -o /dev/null -w '%{http_code}\n' -u admin:changeme https://hubble.local.my.id/
 ```
 
-> Hubble UI has no authentication. Anyone who can reach the hostname can see
-> pod-to-pod flows and DNS queries for the whole cluster. Keep it off untrusted
-> networks, or remove it when you are done:
+The first `curl` returns `401` (no credentials), the second `200`.
+
+> Hubble UI has no authentication of its own, so the manifest puts an nginx
+> proxy (`hubble-auth`) in front of it with HTTP basic auth. Log in as `admin`
+> with the placeholder password `changeme`.
+
+Change the password before leaving it exposed. The proxy reads the htpasswd file
+on every request, so only the Secret needs updating:
+
+```bash
+printf 'admin:%s\n' "$(openssl passwd -apr1 'new-password')" > /tmp/htpasswd
+kubectl -n kube-system create secret generic hubble-auth \
+  --from-file=htpasswd=/tmp/htpasswd --dry-run=client -o yaml | kubectl apply -f -
+```
+
+`kubectl apply -f manifests/observability/hubble-gateway.yaml` writes the
+placeholder back, so also replace the hash in the manifest if you want the
+repository to match the cluster.
+
+Basic auth is one shared credential with no logout and no per-user audit. For
+single sign-on, replace `hubble-auth` with `oauth2-proxy` in front of the same
+Service and keep the route unchanged.
+
+Remove it when you are done:
 
 ```bash
 kubectl delete -f manifests/observability/hubble-gateway.yaml
