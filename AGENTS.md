@@ -80,7 +80,7 @@ in `docs/rebuild.md`. Two ordering rules that break if ignored:
 
 ## Conventions
 
-- Docs in English, chat replies in Indonesian.
+- Docs in English, chat replies in Indonesian or English.
 - Keep commits logical and scoped; do not push.
 - One Gateway (`public` in `monitoring`) serves both `grafana.local.my.id` and
   `hubble.local.my.id` through one Octavia LB. `manifests/observability/gateway.yaml`
