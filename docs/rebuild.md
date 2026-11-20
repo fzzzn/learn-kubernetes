@@ -47,6 +47,14 @@ LoadBalancer Services and PersistentVolumeClaims create OpenStack resources
 that Terraform does not manage. Delete them first, or they survive the teardown
 and keep consuming quota.
 
+If a Gateway exists, delete it before the loop. Cilium owns the
+`LoadBalancer` Service and recreates it when only the Service is deleted:
+
+```bash
+kubectl get gateway --all-namespaces
+kubectl -n monitoring delete gateway grafana
+```
+
 Delete the Octavia load balancers behind `LoadBalancer` Services:
 
 ```bash
@@ -119,7 +127,9 @@ tofu -chdir=infra apply
 
 The bootstrap is fully automated: containerd, kubeadm, Cilium, the OpenStack
 CCM (including Octavia load balancers), and Cinder CSI are installed from
-`infra/cloud-init/kubernetes.yaml`. No manual post-boot step is required.
+`infra/cloud-init/kubernetes.yaml`. The base cluster needs no manual post-boot
+step. Optional add-ons are not part of the bootstrap; see
+[Reinstall in-cluster add-ons](#reinstall-in-cluster-add-ons).
 
 New floating IPs and a new VM password are generated on every rebuild. The
 control plane always gets one; workers get one each when
@@ -143,3 +153,21 @@ sudo tail -f /var/log/cloud-init-output.log
 Then follow the verification and kubeconfig sections of
 [setup.md](setup.md). The old workstation kubeconfig points at the previous
 floating IP, so refresh it before running `kubectl`.
+
+## Reinstall in-cluster add-ons
+
+`destroy` + `apply` replaces the VMs, so every resource stored inside the
+cluster is gone. These add-ons are not part of the bootstrap:
+
+| Add-on | Install guide |
+|---|---|
+| Gateway API CRDs, Cilium `gatewayAPI.enabled`, cert-manager | [tls.md](tls.md) |
+| Grafana, Prometheus, Loki, Alloy, and the Grafana Gateway | [observability.md](observability.md) |
+
+Install them in that order. The Grafana Gateway references the `cilium`
+GatewayClass and the `letsencrypt-prod` issuer from tls.md. The Cilium upgrade
+there uses `--reuse-values`, so the kube-proxy-free settings from cloud-init are
+preserved.
+
+The cluster is fully functional without them; nothing in `infra/` depends on
+these add-ons.

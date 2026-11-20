@@ -139,6 +139,48 @@ kubectl get nodes -o wide
 If `jq` is not installed, copy the control-plane floating IP from
 `tofu -chdir=infra output vm_floating_ips` instead.
 
+## Verify kube-proxy replacement
+
+Only relevant when `kube_proxy_replacement = true`. Three checks must agree:
+
+```bash
+kubectl -n kube-system get ds,pod -l k8s-app=kube-proxy
+kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep -i kubeproxyreplacement
+kubectl -n kube-system get cm cilium-config -o jsonpath='{.data.kube-proxy-replacement}'; echo
+```
+
+Expected: `No resources found`, `KubeProxyReplacement: True`, and `true`.
+
+`exec ds/cilium` picks one pod, so the second command describes a single node.
+Repeat it across all Cilium pods:
+
+```bash
+for p in $(kubectl -n kube-system get pod -l k8s-app=cilium -o name); do
+  printf '%s: ' "$p"
+  kubectl -n kube-system exec "$p" -- cilium-dbg status | grep -i kubeproxyreplacement
+done
+```
+
+Confirm Service routing works without kube-proxy. `403` means the connection to
+the ClusterIP succeeded and the API server rejected the request for lack of
+credentials:
+
+```bash
+kubectl run nettest --rm -it --restart=Never --image=nicolaka/netshoot -- \
+  curl -sk -o /dev/null -w '%{http_code}\n' https://kubernetes.default.svc
+```
+
+On a node, no kube-proxy iptables chains should remain:
+
+```bash
+ssh fauzan@<node>
+sudo iptables-save | grep -c 'KUBE-SVC'
+```
+
+Expected `0`. If the kube-proxy DaemonSet is gone but `KUBE-SVC` chains remain,
+they are leftovers from an in-place switch; only `destroy` + `apply` clears
+them.
+
 To tear the cluster down and rebuild it from scratch, see
 [rebuild.md](rebuild.md). To move to newer Kubernetes or Cilium versions, see
 [upgrade.md](upgrade.md). To expose an application over HTTPS, see

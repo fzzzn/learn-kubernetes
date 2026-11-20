@@ -51,7 +51,8 @@ Service traffic. Setting it to `true` runs `kubeadm init` with
 
 The variable only takes effect on a fresh cluster. An existing node keeps its
 kubelet configuration and kube-proxy DaemonSet, so switch it with `destroy`
-then `apply`, not by replacing instances.
+then `apply`, not by replacing instances. Verify the result with
+[setup.md](setup.md#verify-kube-proxy-replacement).
 
 The Cilium pod CIDR is set from `pod_network_cidr` and must match the kubeadm
 `networking.podSubnet` value.
