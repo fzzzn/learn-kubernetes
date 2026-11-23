@@ -8,6 +8,7 @@
 | [tls.md](tls.md) | Terminate TLS with Cilium Gateway API and cert-manager. |
 | [observability.md](observability.md) | Metrics, logs, dashboards, and public HTTPS access to Grafana and Hubble. |
 | [wordpress.md](wordpress.md) | Deploy WordPress and MariaDB, expose the site over HTTPS, and upgrade it. |
+| [rancher.md](rancher.md) | Install Rancher server on the lab cluster and expose it through the shared Gateway. |
 | [manual-setup.md](manual-setup.md) | Build the same cluster by hand, step by step, without OpenTofu or cloud-init. |
 | [rebuild.md](rebuild.md) | Clean up in-cluster resources, destroy the stack, and rebuild from scratch. |
 | [infrastructure.md](infrastructure.md) | The `infra/` OpenTofu layout, defaults, outputs, storage, and security groups. |

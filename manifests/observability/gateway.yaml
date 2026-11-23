@@ -62,6 +62,19 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
 ---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rancher-tls
+  namespace: monitoring
+spec:
+  secretName: rancher-tls
+  dnsNames:
+    - rancher.local.my.id
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+---
 # Hubble UI has no authentication of its own, so an nginx proxy in front of it
 # asks for HTTP basic auth. Credentials only travel over the HTTPS listener; the
 # HTTP listener redirects before any request reaches the proxy.
@@ -232,6 +245,35 @@ spec:
         certificateRefs:
           - kind: Secret
             name: wordpress-tls
+    # Rancher lives in cattle-system, and its HTTP-01 solver route lives here in
+    # monitoring, so this listener admits both. Same reason as wordpress-http.
+    - name: rancher-http
+      hostname: rancher.local.my.id
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values: [cattle-system, monitoring]
+    - name: rancher-https
+      hostname: rancher.local.my.id
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: cattle-system
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: rancher-tls
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

@@ -83,14 +83,15 @@ in `docs/rebuild.md`. Two ordering rules that break if ignored:
 - Docs in English, chat replies in Indonesian or English.
 - Keep commits logical and scoped; do not push.
 - One Gateway (`public` in `monitoring`) serves `grafana.local.my.id`,
-  `hubble.local.my.id`, and `wordpress.local.my.id` through one Octavia LB.
-  `manifests/observability/gateway.yaml` is the only exposure manifest; do not
-  reintroduce a second Gateway without asking, it costs another LB and floating
-  IP.
+  `hubble.local.my.id`, `wordpress.local.my.id`, and `rancher.local.my.id`
+  through one Octavia LB. `manifests/observability/gateway.yaml` is the only
+  exposure manifest; do not reintroduce a second Gateway without asking, it
+  costs another LB and floating IP.
 - The HTTP-01 solver is bound to a single Gateway, so one `Certificate` carries
-  Grafana and Hubble, and one broken DNS record blocks both. WordPress has its
-  own `wordpress-tls` Certificate and its own listener pair, so a missing
-  wordpress record cannot stall that renewal.
+  Grafana and Hubble, and one broken DNS record blocks both. WordPress and
+  Rancher each have their own Certificate and listener pair
+  (`wordpress-tls`, `rancher-tls`), so a missing record for either cannot stall
+  that renewal.
 - Routes from outside `monitoring` need an explicit `allowedRoutes` selector on
   their listener. New hostnames get their own listener; widening `from: Same`
   would let any namespace attach to the Grafana/Hubble listeners.

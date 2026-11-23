@@ -1,0 +1,24 @@
+# Rancher server on the lab cluster, managed by Rancher itself.
+#
+# helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+# helm -n cattle-system install rancher rancher-stable/rancher \
+#   --version 2.15.3 -f manifests/rancher/values.yaml
+#
+# Exposure lives in manifests/rancher/gateway-route.yaml, not here: the chart
+# would otherwise create its own Gateway plus another Octavia load balancer.
+hostname: rancher.local.my.id
+
+# One replica: this is a single control plane and the lab has no HA requirement.
+# The chart default of three would not schedule on three workers with any
+# meaningful headroom, and Rancher's own docs assume a dedicated cluster.
+replicas: 1
+
+# TLS terminates at the shared `public` Gateway, so Rancher must not generate or
+# request a certificate of its own.
+tls: external
+networkExposure:
+  type: none
+
+# Placeholder. Rancher stores only the hash after the first login; change it out
+# of band with the setup URL rather than committing a real one.
+bootstrapPassword: changeme
