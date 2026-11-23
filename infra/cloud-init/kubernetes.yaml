@@ -15,7 +15,7 @@ package_upgrade: true
 write_files:
   - path: /usr/local/bin/bootstrap-kubernetes.sh
     owner: root:root
-    permissions: '0755'
+    permissions: '0600'
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
@@ -107,7 +107,7 @@ write_files:
 
           kubeadm init --config /etc/kubernetes/kubeadm-init.yaml%{ if kube_proxy_replacement } --skip-phases=addon/kube-proxy%{ endif }
 
-          kubeadm token create "${bootstrap_token}" --ttl 0 \
+          kubeadm token create "${bootstrap_token}" --ttl 1h \
             --kubeconfig=/etc/kubernetes/admin.conf
 
           install -d -m 0700 -o fauzan -g fauzan /home/fauzan/.kube

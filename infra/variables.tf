@@ -170,3 +170,9 @@ variable "key_pair" {
   type        = string
   default     = "FZN-PGP"
 }
+
+variable "admin_cidr" {
+  description = "CIDR allowed to reach SSH and the Kubernetes API from outside"
+  type        = string
+  default     = "0.0.0.0/0"
+}

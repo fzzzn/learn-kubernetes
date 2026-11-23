@@ -76,6 +76,19 @@ published by the CCM.
 - **`providerID` is immutable.** After a partial `apply` that replaced
   instances, the Node object must be deleted so kubelet re-registers.
 - **Docs are 7-bit ASCII.** Diagrams use `+ - |`. Keep it that way.
+- **Never print a rendered bootstrap or `terraform.tfvars`.** The cloud-init
+  script carries the bootstrap token, the CCM app credential, and the subnet
+  and network IDs. `cat`, `diff` against a live copy, and `tofu console` on the
+  full `templatefile` all leak real secrets into logs and transcripts. Inspect
+  with `grep -c`, `stat`, or `kubectl get ... -o jsonpath` on non-secret fields
+  instead. Rotate any credential that has already been printed.
+- **The bootstrap script is `0600` on purpose.** It used to be `0755`, which
+  let `fauzan` and `ubuntu` read the app credential and token without sudo. A
+  plain user shell on a node is a lower bar than it looks. The bootstrap token
+  is `--ttl 1h`, not `--ttl 0`; with auto-approved CSRs an immortal token plus
+  a public 6443 is a node-registration hole.
+- **`admin_cidr` defaults to `0.0.0.0/0`.** SSH and 6443 are otherwise open to
+  the internet. Set it per environment; it is the only knob that closes them.
 
 ## Teardown and rebuild order
 

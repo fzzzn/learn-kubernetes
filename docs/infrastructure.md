@@ -119,6 +119,22 @@ control plane.
 - The cluster group also allows TCP 30000-32767 from `subnet_cidr`, so Octavia
   load balancers can reach the NodePorts of the backends.
 
+SSH and the API are the only two ports open to the internet, and both are
+restricted to `admin_cidr`. The default is `0.0.0.0/0`, which keeps a fresh
+`apply` usable from anywhere but leaves the API and SSH exposed. Set it to your
+own address:
+
+```bash
+# in infra/terraform.tfvars
+admin_cidr = "203.0.113.10/32"
+```
+
+A wide-open 6443 is not merely noise. The bootstrap token lets any holder join a
+node, and `kubeadm:node-autoapprove-bootstrap` issues its client certificate
+without review. The token is created with a one-hour TTL for that reason, and
+`/usr/local/bin/bootstrap-kubernetes.sh`, which contains it, is written `0600`
+so unprivileged local users cannot read it.
+
 LoadBalancer Services do not need a pre-created security group. The CCM creates
 and manages one per Service (`manage-security-groups`) and removes it when the
 Service is deleted.

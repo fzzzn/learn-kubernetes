@@ -18,6 +18,11 @@ tofu -chdir=infra plan
 tofu -chdir=infra apply
 ```
 
+Set `admin_cidr` in `infra/terraform.tfvars` to your own address before the
+first `apply`. It controls who can reach SSH and the Kubernetes API from outside
+the cluster; the default `0.0.0.0/0` exposes both to the internet. See
+[infrastructure.md](infrastructure.md#security-groups) for why that matters.
+
 The control plane initializes with kubeadm and installs:
 
 - Cilium through the Cilium CLI, with its pod CIDR kept in sync with
