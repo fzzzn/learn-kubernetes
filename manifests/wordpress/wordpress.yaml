@@ -1,0 +1,195 @@
+# WordPress and MariaDB on Cinder volumes.
+#
+# Deploy it on its own:
+#   kubectl apply -f manifests/wordpress/wordpress.yaml
+#   kubectl -n wordpress port-forward svc/wordpress 8080:80
+#
+# Both workloads use a ReadWriteOnce volume and a single replica, so their
+# strategy is Recreate. Raising the replica count requires ReadWriteMany storage
+# for /var/www/html, which csi-cinder-sc-delete does not provide.
+#
+# The passwords in the Secret are placeholders. Replace them before exposing the
+# site, and keep them out of git if this ever runs outside a lab.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wordpress
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress
+  namespace: wordpress
+type: Opaque
+stringData:
+  mariadb-root-password: changeme-root
+  mariadb-password: changeme
+  wordpress-password: changeme
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-mariadb
+  namespace: wordpress
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: csi-cinder-sc-delete
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-html
+  namespace: wordpress
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: csi-cinder-sc-delete
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-mariadb
+  namespace: wordpress
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wordpress-mariadb
+  template:
+    metadata:
+      labels:
+        app: wordpress-mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:11.8.9
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress
+                  key: mariadb-root-password
+            - name: MARIADB_DATABASE
+              value: wordpress
+            - name: MARIADB_USER
+              value: wordpress
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress
+                  key: mariadb-password
+          ports:
+            - name: mysql
+              containerPort: 3306
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: mysql
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: wordpress-mariadb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-mariadb
+  namespace: wordpress
+spec:
+  selector:
+    app: wordpress-mariadb
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  namespace: wordpress
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+        - name: wordpress
+          image: wordpress:6.9.4-apache
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: wordpress-mariadb:3306
+            - name: WORDPRESS_DB_NAME
+              value: wordpress
+            - name: WORDPRESS_DB_USER
+              value: wordpress
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress
+                  key: wordpress-password
+            # TLS ends at the Gateway, so WordPress sees plain HTTP from the
+            # proxy. Tell it the public scheme so it does not emit http:// links.
+            - name: WORDPRESS_CONFIG_EXTRA
+              value: |-
+                if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] ) {
+                  $_SERVER['HTTPS'] = 'on';
+                }
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+      volumes:
+        - name: html
+          persistentVolumeClaim:
+            claimName: wordpress-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  namespace: wordpress
+spec:
+  selector:
+    app: wordpress
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
