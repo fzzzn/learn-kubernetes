@@ -30,10 +30,18 @@ The control plane initializes with kubeadm and installs:
   `csi-cinder-sc-retain`.
 
 CoreDNS is then scaled to one replica per node with a required host
-anti-affinity. kubeadm's default is two replicas with a *preferred* rule, which
-lets the scheduler put both on the same node; losing that node then takes all
-cluster DNS with it. The replica count comes from `worker_count` because the
-control plane patches it before any worker has joined.
+anti-affinity, and a `coredns` PodDisruptionBudget with `min-available: 2`. The
+replica count comes from `worker_count` because the control plane patches it
+before any worker has joined.
+
+kubeadm's default is two replicas with a *preferred* rule, which lets the
+scheduler put both on the same node; losing that node then takes all cluster DNS
+with it.
+
+A required host anti-affinity has one real cost: a CoreDNS pod evicted from a
+cordoned node cannot be rescheduled until that node is uncordoned, so it sits
+`Pending`. The PDB is what makes this safe: `kubectl drain` stops evicting once
+only two replicas are available instead of taking the last one.
 
 Kubelet runs with `cloud-provider=external` on every node. The CCM uses the
 OpenStack application credential from `terraform.tfvars`; the same credential

@@ -60,7 +60,10 @@ published by the CCM.
   rule, so the rollout would stall). The replica count uses the `node_count`
   template variable, not `kubectl get nodes`, because the control plane patches
   before any worker joins. Re-run both commands after every control-plane
-  upgrade; the snippet is in `docs/upgrade.md`.
+  upgrade; the snippet is in `docs/upgrade.md`. A `coredns` PDB with
+  `min-available: 2` is applied alongside it: a required host rule leaves an
+  evicted pod `Pending` while its node is cordoned, and the PDB stops a drain
+  from taking the last replica.
 - **Control-plane metrics** must be rebound to `0.0.0.0`
   (`bind-address` for controller-manager and scheduler,
   `listen-metrics-urls` for etcd). Without it Prometheus reports them `DOWN`.

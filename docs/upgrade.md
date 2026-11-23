@@ -161,6 +161,10 @@ kubectl -n kube-system patch deployment/coredns --type=merge -p '{
           "operator": "In", "values": ["kube-dns"]}]},
         "topologyKey": "kubernetes.io/hostname"}]}}}}}}'
 kubectl -n kube-system rollout status deployment/coredns
+
+kubectl -n kube-system create poddisruptionbudget coredns \
+  --selector k8s-app=kube-dns --min-available=2 \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 Without this, all CoreDNS replicas can land on one node again and a single node

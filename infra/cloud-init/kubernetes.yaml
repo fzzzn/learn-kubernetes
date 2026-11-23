@@ -228,6 +228,13 @@ write_files:
 
         kubectl -n kube-system rollout status deployment/coredns --timeout=5m
 
+        # A required host anti-affinity keeps one pod per node, but it also
+        # means an evicted pod cannot be rescheduled while its node is cordoned.
+        # With no PDB, draining two nodes at once can take every replica.
+        kubectl -n kube-system create poddisruptionbudget coredns \
+          --selector k8s-app=kube-dns --min-available=2 \
+          --dry-run=client -o yaml | kubectl apply -f -
+
         cilium status --wait --wait-duration 10m
       else
         if [ ! -f /etc/kubernetes/kubelet.conf ]; then
