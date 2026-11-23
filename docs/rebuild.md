@@ -199,6 +199,9 @@ cluster is gone. These add-ons are not part of the bootstrap:
 |---|---|
 | Gateway API CRDs, Cilium `gatewayAPI.enabled`, cert-manager | [tls.md](tls.md) |
 | Grafana, Prometheus, Loki, Alloy, and the public Gateway for Grafana and Hubble | [observability.md](observability.md) |
+| metrics-server, for `kubectl top` and HPA | [metrics-server.md](metrics-server.md) |
+| WordPress and MariaDB | [wordpress.md](wordpress.md) |
+| Rancher server | [rancher.md](rancher.md) |
 
 Install them in that order. The Gateway references the `cilium` GatewayClass and
 the `letsencrypt-prod` issuer described in tls.md. The Cilium upgrade there uses
