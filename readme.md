@@ -26,6 +26,7 @@ through cloud-init; no manual post-boot step is required.
 | [docs/upgrade.md](docs/upgrade.md) | Upgrade Kubernetes, Cilium, and the OpenStack add-ons. |
 | [docs/tls.md](docs/tls.md) | Terminate TLS with Cilium Gateway API and cert-manager. |
 | [docs/observability.md](docs/observability.md) | Grafana, Prometheus, Loki, Alloy, and Hubble access over HTTPS. |
+| [docs/wordpress.md](docs/wordpress.md) | WordPress and MariaDB, exposed over HTTPS with upgrades. |
 | [docs/manual-setup.md](docs/manual-setup.md) | Build the cluster by hand. |
 | [docs/rebuild.md](docs/rebuild.md) | Tear down and rebuild. |
 | [docs/infrastructure.md](docs/infrastructure.md) | OpenTofu layout and operations. |
@@ -37,9 +38,10 @@ docs/                     Documentation
 infra/                    OpenTofu configuration
   cloud-init/             First-boot node bootstrap
   *.tf                    Network, compute, security, variables, outputs
-manifests/                Helm values for optional add-ons
+manifests/                Manifests for optional add-ons and workloads
   observability/          Grafana, Prometheus, Loki, Alloy
     dashboards/           Grafana dashboard ConfigMaps
+  wordpress/              WordPress and MariaDB, with its HTTPRoutes
 ```
 
 ## References

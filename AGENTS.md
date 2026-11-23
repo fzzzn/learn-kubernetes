@@ -82,9 +82,19 @@ in `docs/rebuild.md`. Two ordering rules that break if ignored:
 
 - Docs in English, chat replies in Indonesian or English.
 - Keep commits logical and scoped; do not push.
-- One Gateway (`public` in `monitoring`) serves both `grafana.local.my.id` and
-  `hubble.local.my.id` through one Octavia LB. `manifests/observability/gateway.yaml`
-  is the only exposure manifest; do not reintroduce a second Gateway without
-  asking, it costs another LB and floating IP.
+- One Gateway (`public` in `monitoring`) serves `grafana.local.my.id`,
+  `hubble.local.my.id`, and `wordpress.local.my.id` through one Octavia LB.
+  `manifests/observability/gateway.yaml` is the only exposure manifest; do not
+  reintroduce a second Gateway without asking, it costs another LB and floating
+  IP.
 - The HTTP-01 solver is bound to a single Gateway, so one `Certificate` carries
-  both names and one broken DNS record blocks both.
+  Grafana and Hubble, and one broken DNS record blocks both. WordPress has its
+  own `wordpress-tls` Certificate and its own listener pair, so a missing
+  wordpress record cannot stall that renewal.
+- Routes from outside `monitoring` need an explicit `allowedRoutes` selector on
+  their listener. New hostnames get their own listener; widening `from: Same`
+  would let any namespace attach to the Grafana/Hubble listeners.
+- An HTTP listener that redirects a hostname to HTTPS also swallows the
+  `/.well-known/acme-challenge/` path and breaks HTTP-01. Such a listener must
+  also admit the `monitoring` namespace so the cert-manager solver route can
+  match that path before the redirect.

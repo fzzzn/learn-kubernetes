@@ -118,13 +118,14 @@ repository and never commit the real password.
 
 ## Expose Grafana and Hubble with Gateway API
 
-`manifests/observability/gateway.yaml` publishes both hostnames through one
+`manifests/observability/gateway.yaml` publishes all three hostnames through one
 Cilium Gateway, so they share a single Octavia load balancer and floating IP:
 
 | Hostname | Backend |
 |---|---|
 | `grafana.local.my.id` | `kube-prometheus-stack-grafana` |
 | `hubble.local.my.id` | `hubble-auth`, an nginx proxy in front of `hubble-ui` |
+| `wordpress.local.my.id` | `wordpress` in the `wordpress` namespace |
 
 This needs the Gateway API CRDs, `gatewayAPI.enabled=true`, and cert-manager with
 `config.gatewayAPI.enabled=true`, as described in [tls.md](tls.md). It also needs
@@ -143,9 +144,16 @@ at the `public` Gateway. If you already created one from [tls.md](tls.md), keep 
 single copy and use the same ACME email in both places, otherwise the apply
 overwrites the existing issuer.
 
-One `Certificate` carries both names, because `gatewayHTTPRoute.parentRefs`
+One `Certificate` carries Grafana and Hubble, because `gatewayHTTPRoute.parentRefs`
 accepts a single Gateway. Renewal fails for both names if either `A` record is
-missing.
+missing. WordPress has its own `wordpress-tls` Certificate and its own
+`wordpress-http`/`wordpress-https` listener pair, so a missing wordpress record
+only leaves WordPress on HTTP.
+
+That listener pair also accepts routes from `monitoring`, because the HTTP-01
+solver route lives there and must match `/.well-known/acme-challenge/` before the
+HTTP listener's redirect to HTTPS. Without it the challenge answers `301` and
+never validates.
 
 Edit the ACME email in the ClusterIssuer, then apply:
 
@@ -153,28 +161,29 @@ Edit the ACME email in the ClusterIssuer, then apply:
 kubectl apply -f manifests/observability/gateway.yaml
 ```
 
-Read the floating IP and point both `A` records at it:
+Read the floating IP and point the `A` records for all three names at it:
 
 ```bash
 kubectl -n monitoring get service cilium-gateway-public
 ```
 
-Then watch the certificate and the Gateway:
+Then watch the certificates and the Gateway:
 
 ```bash
 kubectl -n monitoring get certificate,challenge
 kubectl -n monitoring get gateway public
 ```
 
-Expected: `Certificate` and `Challenge` become ready, the Gateway reports
-`PROGRAMMED=True`, both hostnames serve a valid certificate, and `http://`
-redirects with `301`.
+Expected: both `Certificate` objects and the `Challenge` become ready, the Gateway
+reports `PROGRAMMED=True` for every listener, all hostnames serve a valid
+certificate, and `http://` redirects with `301`.
 
 ```bash
 kubectl -n monitoring get httproute -A
 curl -I https://grafana.local.my.id
 curl -s -o /dev/null -w '%{http_code}\n' https://hubble.local.my.id/
 curl -s -o /dev/null -w '%{http_code}\n' -u admin:changeme https://hubble.local.my.id/
+curl -I https://wordpress.local.my.id
 ```
 
 The Hubble requests return `401` without credentials and `200` with them. Open
@@ -183,10 +192,10 @@ there is traffic; the connection indicator in the header turns green when the UI
 reaches `hubble-relay`. An empty list usually means the namespace filter matches
 nothing rather than a broken relay.
 
-HTTP-01 needs both names to resolve to the load balancer from the public internet
-and port 80 to be reachable. If the names are internal only, use a DNS-01 solver
-or a self-signed issuer instead. The floating IP changes on a rebuild, so update
-both records afterwards.
+HTTP-01 needs every name to resolve to the load balancer from the public
+internet and port 80 to be reachable. If the names are internal only, use a
+DNS-01 solver or a self-signed issuer instead. The floating IP changes on a
+rebuild, so update all three records afterwards.
 
 > Hubble UI has no authentication of its own, so the manifest puts an nginx
 > proxy (`hubble-auth`) in front of it with HTTP basic auth. Log in as `admin`
@@ -239,6 +248,8 @@ Octavia load balancer behind it.
 | Browser keeps asking for the Hubble password | The Secret holds a different htpasswd than the one you type, or the browser cached an old credential | Re-apply the Secret as shown in [Expose Hubble UI](#expose-grafana-and-hubble-with-gateway-api) and reopen the page in a private window. |
 | Hubble UI loads but shows no flows | `hubble-relay` is not ready, or the selected namespace is idle | `kubectl -n kube-system get pods -l k8s-app=hubble-relay` and pick another namespace. |
 | `Certificate` stays `READY=False` for a public hostname | The DNS `A` record is missing or still cached, so HTTP-01 cannot validate | `dig +short @1.1.1.1 <hostname>`, fix the record, then `kubectl -n <namespace> delete challenge --all`. |
+| `Challenge` self-check fails with `no such host` while `dig` resolves | The solver validates from inside the cluster through CoreDNS, not from your workstation. A record created seconds ago is not cached yet. | Wait a few minutes and let cert-manager retry, or restart the order with `kubectl -n monitoring delete challenge --all`. |
+| WordPress returns `404` on the load balancer but works with `port-forward` | No HTTPRoute is attached, or the route is in a namespace its listener does not allow | `kubectl -n wordpress get httproute` and compare `allowedRoutes` on the `wordpress-http`/`wordpress-https` listeners. |
 
 ## Notes
 
@@ -252,7 +263,7 @@ Octavia load balancer behind it.
   Prometheus `serviceMonitorSelector` together.
 - The values file sets `grafana.ini.server.root_url` to the public hostname, so
   links in alerts and emails work. Change it if you use a different domain.
-- Both public hostnames share one Octavia load balancer and floating IP. Each
+- All public hostnames share one Octavia load balancer and floating IP. Each
   additional Gateway costs another pair, so check your quota before adding one.
 - The commands do not pin chart versions. Add `--version <chart-version>` to
   each install for reproducible upgrades.

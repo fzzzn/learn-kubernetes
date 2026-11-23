@@ -1,14 +1,16 @@
-# Publishes Grafana and the Hubble UI through one Cilium Gateway, so both
-# hostnames share a single Octavia load balancer and floating IP. Cilium creates
-# the LoadBalancer Service; the CCM turns it into an Octavia load balancer.
+# Publishes Grafana, the Hubble UI, and WordPress through one Cilium Gateway, so
+# all three hostnames share a single Octavia load balancer and floating IP.
+# Cilium creates the LoadBalancer Service; the CCM turns it into an Octavia load
+# balancer.
 #
 # Requires Cilium kube-proxy replacement, the Gateway API CRDs,
 # gatewayAPI.enabled=true, and cert-manager config.gatewayAPI.enabled=true.
 # See docs/tls.md.
 #
-# One Certificate covers both names because HTTP-01 through the Gateway can only
-# reference a single parent Gateway. Renewal fails for both names if either A
-# record is missing.
+# One Certificate covers Grafana and Hubble because HTTP-01 through the Gateway
+# can only reference a single parent Gateway. Renewal fails for both names if
+# either A record is missing. WordPress has its own Certificate and listener so a
+# missing wordpress record cannot stall that renewal.
 #
 # Change the ACME email before applying. If a letsencrypt-prod ClusterIssuer
 # already exists, keep one copy and use the same email.
@@ -40,6 +42,22 @@ spec:
   dnsNames:
     - grafana.local.my.id
     - hubble.local.my.id
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+---
+# A separate Certificate and listener keep WordPress out of the Grafana/Hubble
+# certificate. A missing wordpress record then only blocks WordPress, instead of
+# stalling the renewal of all three names at once.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wordpress-tls
+  namespace: monitoring
+spec:
+  secretName: wordpress-tls
+  dnsNames:
+    - wordpress.local.my.id
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
@@ -183,6 +201,37 @@ spec:
         certificateRefs:
           - kind: Secret
             name: public-tls
+    # Cilium separates the two HTTPS listeners by SNI, so WordPress gets its own
+    # certificate without touching the Grafana/Hubble one. The Selector pins the
+    # listener to the wordpress namespace using the label the API server sets on
+    # every namespace; `from: Same` would refuse routes outside monitoring.
+    - name: wordpress-http
+      hostname: wordpress.local.my.id
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values: [wordpress, monitoring]
+    - name: wordpress-https
+      hostname: wordpress.local.my.id
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: wordpress
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wordpress-tls
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

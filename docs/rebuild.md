@@ -79,8 +79,12 @@ the next command waits forever for them to go:
 
 ```bash
 helm -n monitoring uninstall alloy loki kube-prometheus-stack
-kubectl -n monitoring delete namespace monitoring
+kubectl delete namespace monitoring wordpress
 ```
+
+Deleting the `wordpress` namespace also removes its routes, and Cilium drops
+those listeners' backends while the Gateway itself stays up for Grafana and
+Hubble.
 
 Scaling to zero is not enough. A `Prometheus` custom resource sets the StatefulSet
 replica count back to one, so the pod, and sometimes a new claim, come back.
@@ -215,13 +219,14 @@ updated, and HTTP-01 cannot validate before that:
 kubectl -n monitoring get service cilium-gateway-public
 ```
 
-Point the `A` records for `grafana.local.my.id` and `hubble.local.my.id` at that
-address, then wait for the certificate:
+Point the `A` records for `grafana.local.my.id`, `hubble.local.my.id`, and
+`wordpress.local.my.id` at that address, then wait for the certificates:
 
 ```bash
 kubectl -n monitoring get certificate,challenge
 ```
 
 `public-tls` stays `READY=False` and the Gateway exposes only port 80 until both
-names resolve to the new address. One `Certificate` carries both names, so a
-missing record blocks the other one too.
+names resolve to the new address. One `Certificate` carries Grafana and Hubble,
+so a missing record blocks the other one too. WordPress has its own
+`wordpress-tls`, so its record only affects WordPress.
