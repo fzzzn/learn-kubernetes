@@ -6,7 +6,11 @@
 #
 # Both workloads use a ReadWriteOnce volume and a single replica, so their
 # strategy is Recreate. Raising the replica count requires ReadWriteMany storage
-# for /var/www/html, which csi-cinder-sc-delete does not provide.
+# for wp-content, which csi-cinder-sc-delete does not provide.
+#
+# Only wp-content is stored on the PVC. Core WordPress comes from the image, so
+# changing the image tag upgrades the site; keeping core on the volume would
+# freeze it at whichever version first filled an empty directory.
 #
 # The passwords in the Secret are placeholders. Replace them before exposing the
 # site, and keep them out of git if this ever runs outside a lab.
@@ -41,7 +45,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: wordpress-html
+  name: wordpress-wp-content
   namespace: wordpress
 spec:
   accessModes: ["ReadWriteOnce"]
@@ -140,7 +144,7 @@ spec:
       containers:
         - name: wordpress
           # Moving tag: points at the newest stable Apache image. Pin a version
-          # (for example 6.9.4-apache) if you need reproducible redeploys.
+          # (for example 7.1.5-apache) if you need reproducible redeploys.
           image: wordpress:latest
           env:
             - name: WORDPRESS_DB_HOST
@@ -176,12 +180,14 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
           volumeMounts:
-            - name: html
-              mountPath: /var/www/html
+            # Only wp-content is persistent. Core files come from the image, so
+            # a new :latest tag actually upgrades WordPress on the next rollout.
+            - name: wp-content
+              mountPath: /var/www/html/wp-content
       volumes:
-        - name: html
+        - name: wp-content
           persistentVolumeClaim:
-            claimName: wordpress-html
+            claimName: wordpress-wp-content
 ---
 apiVersion: v1
 kind: Service
