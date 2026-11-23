@@ -23,15 +23,15 @@ through cloud-init; no manual post-boot step is required.
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Topology, component versions, terminology, bootstrap flow. |
 | [docs/setup.md](docs/setup.md) | Deploy and verify the cluster. |
+| [docs/infrastructure.md](docs/infrastructure.md) | OpenTofu layout and operations. |
+| [docs/manual-setup.md](docs/manual-setup.md) | Build the cluster by hand. |
 | [docs/upgrade.md](docs/upgrade.md) | Upgrade Kubernetes, Cilium, and the OpenStack add-ons. |
+| [docs/rebuild.md](docs/rebuild.md) | Tear down and rebuild. |
 | [docs/tls.md](docs/tls.md) | Terminate TLS with Cilium Gateway API and cert-manager. |
 | [docs/observability.md](docs/observability.md) | Grafana, Prometheus, Loki, Alloy, and Hubble access over HTTPS. |
+| [docs/metrics-server.md](docs/metrics-server.md) | `kubectl top`, HPA, and VPA support. |
 | [docs/wordpress.md](docs/wordpress.md) | WordPress and MariaDB, exposed over HTTPS with upgrades. |
 | [docs/rancher.md](docs/rancher.md) | Rancher server, exposed through the same Gateway. |
-| [docs/metrics-server.md](docs/metrics-server.md) | `kubectl top`, HPA, and VPA support. |
-| [docs/manual-setup.md](docs/manual-setup.md) | Build the cluster by hand. |
-| [docs/rebuild.md](docs/rebuild.md) | Tear down and rebuild. |
-| [docs/infrastructure.md](docs/infrastructure.md) | OpenTofu layout and operations. |
 
 ## Repository layout
 

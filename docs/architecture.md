@@ -66,15 +66,15 @@ the control plane with `ssh -J`.
 +---------------------------- control plane -----------------------------+
 | kube-apiserver :6443      etcd :2379                                   |
 | kube-controller-manager   kube-scheduler                               |
-| kube-proxy                coredns (2 replicas)                         |
+| coredns (one per node)    metrics-server                               |
 | cilium-agent              cilium-envoy                                 |
 | cilium-operator           openstack-cloud-controller-manager           |
 | openstack-cinder-csi-controllerplugin                                  |
 +------------------------------------------------------------------------+
 +------------------------------- workers --------------------------------+
-| kubelet :10250            kube-proxy                                   |
+| kubelet :10250                                                         |
 | cilium-agent              cilium-envoy                                 |
-| openstack-cinder-csi-nodeplugin                                        |
+| coredns                   openstack-cinder-csi-nodeplugin              |
 +------------------------------------------------------------------------+
 ```
 

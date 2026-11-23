@@ -70,12 +70,23 @@ than from the chart defaults (which set none at all):
 | Grafana | 558Mi | 768Mi |
 | Loki | 264Mi | 512Mi |
 | Alloy (per node) | 236Mi | 384Mi |
+| Prometheus Operator | 55Mi | 256Mi |
+| kube-state-metrics | 52Mi | 192Mi |
 | Alertmanager | 53Mi | 128Mi |
+| node-exporter | 21Mi | 128Mi |
+| Loki canary | 28Mi | 64Mi |
+| Loki gateway, Grafana sidecars | ~80Mi | 64Mi / 128Mi |
 
 Before this, 73 containers ran without any memory limit while the scheduler saw
-only 1.2Gi of requests against 9Gi actually in use. A pod could grow until the
-kernel OOM-killed something on the node, and nothing stopped it at scheduling
-time.
+only 1.2Gi of requests against 9Gi actually in use. After the pass above, 51
+containers still have none and requests total 1.89 cores / 3.61Gi. The remainder
+is deliberate: cilium, the CCM, Cinder CSI, etcd, and kube-apiserver are the
+control plane, where a wrong memory limit can leave the cluster unable to heal
+itself.
+
+The Prometheus and Alertmanager `config-reloader` sidecars cannot be limited
+this way: the `Prometheus` and `Alertmanager` custom resources have no field for
+container resources. They use about 21Mi.
 
 Rancher's limit is deliberately generous: its first-boot chart installation
 burst to 1497Mi, and a tighter limit OOM-kills it mid-install, which leaves

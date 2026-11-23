@@ -313,7 +313,35 @@ and boot-volume snapshots until the new version has run for a while.
 ## Upgrade order
 
 1. Kubernetes control plane (`kubeadm upgrade apply`, then kubelet).
-2. Cilium.
-3. Workers, one at a time.
-4. OpenStack CCM and Cinder CSI charts.
-5. Node OS packages.
+2. Re-apply the CoreDNS scale, anti-affinity, and PDB (step 1 above).
+3. Cilium.
+4. Workers, one at a time.
+5. OpenStack CCM and Cinder CSI charts.
+6. Node OS packages.
+
+## In-cluster add-ons
+
+These are installed by hand, so nothing upgrades them automatically. They are
+independent of the Kubernetes version and can be bumped at any time:
+
+| Add-on | Upgrade |
+|---|---|
+| cert-manager | `helm -n cert-manager upgrade cert-manager jetstack/cert-manager --version <new> --reuse-values --set crds.enabled=true` |
+| Gateway API CRDs | `kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/<new>/standard-install.yaml` |
+| kube-prometheus-stack, Loki, Alloy | `helm -n monitoring upgrade <release> <chart> -f manifests/observability/<release>-values.yaml --reuse-values` |
+| metrics-server | `helm -n kube-system upgrade metrics-server metrics-server/metrics-server -f manifests/metrics-server/values.yaml` |
+| WordPress | See [wordpress.md](wordpress.md#upgrade): the tag, the rollout, and the database upgrade step. |
+| Rancher | `helm -n cattle-system upgrade rancher rancher-stable/rancher -f manifests/rancher/values.yaml --reuse-values` |
+
+One ordering rule matters: upgrade the Gateway API CRDs before Cilium if the
+new CRD release is required by the Cilium version, and re-run
+`manifests/observability/gateway.yaml` afterwards so the listeners reconcile.
+
+Check after any add-on upgrade:
+
+```bash
+helm list -A
+kubectl get certificate -n monitoring
+kubectl get gateway -n monitoring
+```
+
