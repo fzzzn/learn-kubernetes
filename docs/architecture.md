@@ -130,7 +130,21 @@ and 4 is handled by Cilium's eBPF datapath and kube-proxy is not installed.
 | kubeadm API | `v1beta4` | kubeadm |
 | containerd | distribution package | Ubuntu |
 
-All versions are pinned in `infra/variables.tf`.
+The bootstrap versions above are pinned in `infra/variables.tf`. The add-ons
+installed by hand are not pinned there:
+
+| Add-on | Version in this cluster |
+|---|---|
+| Gateway API CRDs | 1.6.3 |
+| cert-manager | chart 1.21.3 |
+| kube-prometheus-stack | chart 93.5.0 (app v0.95.2) |
+| Loki | chart 7.7.0 (app 3.6.20) |
+| Alloy | chart 1.16.0 (app v1.22.0) |
+| metrics-server | chart 3.14.0 (app 0.9.0) |
+| Rancher | 2.15.3 |
+
+Their install steps are in [tls.md](tls.md), [observability.md](observability.md),
+[metrics-server.md](metrics-server.md), and [rancher.md](rancher.md).
 
 ## Terminology
 

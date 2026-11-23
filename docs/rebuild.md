@@ -222,8 +222,9 @@ updated, and HTTP-01 cannot validate before that:
 kubectl -n monitoring get service cilium-gateway-public
 ```
 
-Point the `A` records for `grafana.local.my.id`, `hubble.local.my.id`, and
-`wordpress.local.my.id` at that address, then wait for the certificates:
+Point the `A` records for `grafana.local.my.id`, `hubble.local.my.id`,
+`wordpress.local.my.id`, and `rancher.local.my.id` at that address, then wait
+for the certificates:
 
 ```bash
 kubectl -n monitoring get certificate,challenge
@@ -231,5 +232,6 @@ kubectl -n monitoring get certificate,challenge
 
 `public-tls` stays `READY=False` and the Gateway exposes only port 80 until both
 names resolve to the new address. One `Certificate` carries Grafana and Hubble,
-so a missing record blocks the other one too. WordPress has its own
-`wordpress-tls`, so its record only affects WordPress.
+so a missing record blocks the other one too. WordPress and Rancher each have
+their own Certificate (`wordpress-tls`, `rancher-tls`), so a missing record for
+either only affects that one site.

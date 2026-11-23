@@ -24,8 +24,9 @@ there as well.
 9. [Control plane: Cilium](#9-control-plane-cilium)
 10. [Control plane: CCM and Cinder CSI](#10-control-plane-ccm-and-cinder-csi)
 11. [Workers: join](#11-workers-join)
-12. [Verification](#verification)
-13. [Troubleshooting](#troubleshooting)
+12. [CoreDNS](#12-coredns)
+13. [Verification](#verification)
+14. [Troubleshooting](#troubleshooting)
 
 ## 1. Variables
 
@@ -375,6 +376,39 @@ openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt |
   openssl rsa -pubin -outform der 2>/dev/null |
   sha256sum | awk '{print $1}'
 ```
+
+## 12. CoreDNS
+
+Run on the control plane once every worker has joined. kubeadm ships two
+replicas with a *preferred* anti-affinity, which lets both land on the same node;
+losing that node takes all cluster DNS with it. One replica per node with a
+required rule fixes that:
+
+```bash
+kubectl -n kube-system scale deployment/coredns \
+  --replicas="$(kubectl get nodes --no-headers | wc -l)"
+
+kubectl -n kube-system patch deployment/coredns --type=merge -p '{
+  "spec": {
+    "strategy": {"type": "RollingUpdate",
+      "rollingUpdate": {"maxSurge": 0, "maxUnavailable": 1}},
+    "template": {"spec": {"affinity": {"podAntiAffinity": {
+      "requiredDuringSchedulingIgnoredDuringExecution": [{
+        "labelSelector": {"matchExpressions": [{"key": "k8s-app",
+          "operator": "In", "values": ["kube-dns"]}]},
+        "topologyKey": "kubernetes.io/hostname"}]}}}}}}'
+
+kubectl -n kube-system rollout status deployment/coredns
+
+kubectl -n kube-system create poddisruptionbudget coredns \
+  --selector k8s-app=kube-dns --min-available=2 \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+`maxSurge: 0` is required: under a required host anti-affinity a surge pod has
+no node to land on, so the rollout would stall. The PDB is what keeps a
+`kubectl drain` from taking the last replica, because an evicted pod stays
+`Pending` while its node is cordoned.
 
 ## Verification
 
