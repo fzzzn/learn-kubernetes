@@ -139,7 +139,9 @@ spec:
     spec:
       containers:
         - name: wordpress
-          image: wordpress:6.9.4-apache
+          # Moving tag: points at the newest stable Apache image. Pin a version
+          # (for example 6.9.4-apache) if you need reproducible redeploys.
+          image: wordpress:latest
           env:
             - name: WORDPRESS_DB_HOST
               value: wordpress-mariadb:3306
