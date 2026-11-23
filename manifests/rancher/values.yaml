@@ -22,3 +22,14 @@ networkExposure:
 # Placeholder. Rancher stores only the hash after the first login; change it out
 # of band with the setup URL rather than committing a real one.
 bootstrapPassword: changeme
+
+# Rancher idles around 500Mi and settled at 1497Mi peak here (its initial
+# chart-install burst). 2Gi gives that burst room; a lower limit OOMKills it
+# mid-install and leaves releases in pending-install.
+resources:
+  requests:
+    cpu: 100m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi

@@ -57,6 +57,33 @@ ConfigMap labelled `grafana_dashboard: "1"` in its namespace.
 Loki comes before Alloy so the push endpoint already exists. Grafana can be
 installed in any order; the Loki datasource is resolved when you query it.
 
+## Resource limits
+
+Every values file in `manifests/observability/` and `manifests/rancher/` sets
+requests and a memory limit, sized from peaks measured on this cluster rather
+than from the chart defaults (which set none at all):
+
+| Workload | Peak seen | Limit |
+|---|---|---|
+| Prometheus | 761Mi | 2Gi |
+| Rancher | 1497Mi | 2Gi |
+| Grafana | 558Mi | 768Mi |
+| Loki | 264Mi | 512Mi |
+| Alloy (per node) | 236Mi | 384Mi |
+| Alertmanager | 53Mi | 128Mi |
+
+Before this, 73 containers ran without any memory limit while the scheduler saw
+only 1.2Gi of requests against 9Gi actually in use. A pod could grow until the
+kernel OOM-killed something on the node, and nothing stopped it at scheduling
+time.
+
+Rancher's limit is deliberately generous: its first-boot chart installation
+burst to 1497Mi, and a tighter limit OOM-kills it mid-install, which leaves
+system releases in `pending-install` (see [rancher.md](rancher.md)).
+
+Raising one of these means re-running that chart's `helm upgrade` with the
+values file. Limits do not apply retroactively to running pods.
+
 ## Verify
 
 ```bash

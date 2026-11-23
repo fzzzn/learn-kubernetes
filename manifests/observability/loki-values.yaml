@@ -21,6 +21,13 @@ loki:
 
 singleBinary:
   replicas: 1
+  # Peak was 264Mi. Single-binary Loki buffers writes in memory before flushing.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
   persistence:
     enabled: true
     storageClass: csi-cinder-sc-delete
@@ -39,6 +46,27 @@ chunksCache:
   enabled: false
 resultsCache:
   enabled: false
+
+gateway:
+  # Only fronts the Loki push/query API inside the cluster; the chart sets no
+  # resources on it.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+
+# The canary writes a log line per interval and queries it back, so a stale
+# canary means writes are failing. It runs one pod per node by default; the
+# chart sets no resources.
+lokiCanary:
+  resources:
+    requests:
+      cpu: 5m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
 
 # Ship the chart's official Loki dashboards and their recording rules to
 # Grafana and Prometheus.

@@ -1,0 +1,28 @@
+# metrics-server, so kubectl top and HPA work.
+#
+# helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+# helm -n kube-system install metrics-server metrics-server/metrics-server \
+#   --version 3.14.0 -f manifests/metrics-server/values.yaml
+#
+# Nothing in cloud-init installs this: Prometheus scrapes cAdvisor directly, so
+# dashboards worked without it. The metrics API is a separate path that only
+# kubectl top, HPA, and VPA read.
+#
+# kubelet serves its summary API with a self-signed certificate that has no
+# address in its SAN list, so scraping it fails verification. insecureSkipTLSVerify
+# is the standard fix in a lab and does not expose traffic: metrics-server still
+# talks to kubelet over the node's internal network.
+args:
+  - --kubelet-insecure-tls
+  - --kubelet-preferred-address-types=InternalIP
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# One replica is enough here. Two would both scrape every node and roughly
+# double the API load for no benefit, since leaking one is a singleton.
+replicas: 1

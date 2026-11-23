@@ -3,6 +3,24 @@
 grafana:
   # Lab default. Change it before exposing Grafana outside the cluster.
   adminPassword: changeme
+  # Peak measured in this cluster was 558Mi (dashboard rendering). The limit is
+  # ~1.4x that so a heavy dashboard cannot take down the node.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+  # Two k8s-sidecar containers (dashboards and datasources) run per Grafana pod,
+  # ~80Mi each, and the chart sets no limit on them by default.
+  sidecar:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
   grafana.ini:
     server:
       # Matches the Gateway hostname; used for links in alerts and emails.
@@ -29,6 +47,15 @@ kubeProxy:
 prometheus:
   prometheusSpec:
     retention: 7d
+    # Peak was 761Mi with 7 days of retention. 2Gi leaves room for compaction and
+    # a bigger scrape target count without OOMKilling the WAL.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
     storageSpec:
       volumeClaimTemplate:
         spec:
@@ -37,3 +64,37 @@ prometheus:
           resources:
             requests:
               storage: 10Gi
+
+alertmanager:
+  alertmanagerSpec:
+    # Small on purpose: two replicas are not worth it on one control plane.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 192Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 128Mi

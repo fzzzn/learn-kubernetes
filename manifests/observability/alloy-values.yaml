@@ -1,6 +1,14 @@
 # Ships pod logs to Loki. Runs as a DaemonSet, one pod per node.
 # Chart: grafana/alloy
 alloy:
+  # Peak was 236Mi on the busiest node. Alloy reads every container log on its
+  # node, so the limit scales with log volume rather than with traffic.
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 384Mi
   configMap:
     content: |
       discovery.kubernetes "pods" {
