@@ -23,13 +23,17 @@ Point an `A` record for `wordpress.local.my.id` at the Gateway floating IP:
 kubectl -n monitoring get service cilium-gateway-public
 ```
 
-Until it resolves, the HTTP listener already redirects to HTTPS but the browser
-gets an invalid certificate, and the ACME challenge stays `pending` with
-`no such host`. The site itself is reachable in the meantime:
+The certificate issues only after the name resolves, because HTTP-01 validates
+from inside the cluster. Watch it settle:
 
 ```bash
-kubectl -n wordpress port-forward svc/wordpress 8080:80
+kubectl -n monitoring get certificate wordpress-tls
+kubectl -n monitoring get gateway public     # wordpress-https must be Programmed
 ```
+
+While the challenge is pending, `wordpress-https` reports
+`Invalid CertificateRef` and HTTPS answers `404` from Cilium. That is expected;
+the listener recovers on its own once the Secret exists.
 
 ## Only wp-content is on the volume
 
@@ -41,6 +45,26 @@ equivalent but is not: the official entrypoint only copies core into an
 at whichever version first filled it, and a new image tag changes nothing.
 
 The volume carries themes, plugins, and uploads only.
+
+## siteurl and home
+
+`siteurl` and `home` in `wp_options` hold the public hostname. They are not
+derived from anything, so a fresh install keeps whatever URL you used
+(`localhost:8080`) until you change it, and `port-forward` redirects to the
+domain instead of serving locally. Test locally by overriding the Host header:
+
+```bash
+kubectl -n wordpress port-forward svc/wordpress 8080:80 &
+curl -H 'Host: wordpress.local.my.id' http://127.0.0.1:8080/
+```
+
+To change them:
+
+```bash
+kubectl -n wordpress exec deploy/wordpress-mariadb -- sh -c \
+  'mariadb -u root -p"$MARIADB_ROOT_PASSWORD" -D wordpress -e \
+   "update wp_options set option_value=\"https://wordpress.local.my.id\" where option_name in (\"siteurl\",\"home\");"'
+```
 
 ## Upgrade
 
@@ -76,6 +100,4 @@ kubectl -n wordpress exec deploy/wordpress -- tar -czf - -C /var/www/html wp-con
 - TLS terminates at the Gateway, so `WORDPRESS_CONFIG_EXTRA` maps
   `X-Forwarded-Proto: https` back to `$_SERVER['HTTPS']`. Without it WordPress
   writes `http://` URLs into the database and redirects in a loop.
-- `siteurl` and `home` in `wp_options` must match the public hostname. They are
-  set to `http://localhost:8080` by the initial install; change them before
-  pointing DNS at the site.
+- `siteurl` and `home` are not automatic; see [siteurl and home](#siteurl-and-home).
