@@ -53,6 +53,14 @@ published by the CCM.
 - **`kube_proxy_replacement` is not switchable in place.** It changes the kubeadm
   invocation and Cilium flags, so flipping it requires `destroy` + `apply`. It
   also enables Hubble. Gateway API and Hubble both need it `true`.
+- **CoreDNS is patched after kubeadm, and `kubeadm upgrade apply` undoes it.**
+  `infra/cloud-init/kubernetes.yaml` scales `deployment/coredns` to one replica
+  per node and replaces the preferred anti-affinity with a required one, with
+  `maxSurge: 0` (a surge pod has no host left to land on under a required host
+  rule, so the rollout would stall). The replica count uses the `node_count`
+  template variable, not `kubectl get nodes`, because the control plane patches
+  before any worker joins. Re-run both commands after every control-plane
+  upgrade; the snippet is in `docs/upgrade.md`.
 - **Control-plane metrics** must be rebound to `0.0.0.0`
   (`bind-address` for controller-manager and scheduler,
   `listen-metrics-urls` for etcd). Without it Prometheus reports them `DOWN`.

@@ -58,6 +58,7 @@ resource "openstack_compute_instance_v2" "vm" {
     kubernetes_major_minor                  = local.kubernetes_major_minor
     kubernetes_version                      = var.kubernetes_version
     pod_network_cidr                        = var.pod_network_cidr
+    node_count                              = var.worker_count + 1
     is_control_plane                        = each.key == "kube-control-plane"
     node_name                               = each.value.name
     cluster_name                            = var.cluster_name

@@ -29,6 +29,12 @@ The control plane initializes with kubeadm and installs:
   `csi-cinder-sc-delete` StorageClass (made the cluster default) and
   `csi-cinder-sc-retain`.
 
+CoreDNS is then scaled to one replica per node with a required host
+anti-affinity. kubeadm's default is two replicas with a *preferred* rule, which
+lets the scheduler put both on the same node; losing that node then takes all
+cluster DNS with it. The replica count comes from `worker_count` because the
+control plane patches it before any worker has joined.
+
 Kubelet runs with `cloud-provider=external` on every node. The CCM uses the
 OpenStack application credential from `terraform.tfvars`; the same credential
 is stored in the `cloud-config` Secret in `kube-system` and consumed by the

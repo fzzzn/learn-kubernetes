@@ -144,6 +144,28 @@ kubectl get nodes
 The control plane reports the new version. This cluster has a single control
 plane, so the API is briefly unavailable during `kubeadm upgrade apply`.
 
+`kubeadm upgrade apply` re-applies its CoreDNS addon, which resets the
+Deployment to two replicas with a preferred anti-affinity. Re-run the two
+commands from the bootstrap after every upgrade:
+
+```bash
+kubectl -n kube-system scale deployment/coredns \
+  --replicas="$(kubectl get nodes --no-headers | wc -l)"
+kubectl -n kube-system patch deployment/coredns --type=merge -p '{
+  "spec": {
+    "strategy": {"type": "RollingUpdate",
+      "rollingUpdate": {"maxSurge": 0, "maxUnavailable": 1}},
+    "template": {"spec": {"affinity": {"podAntiAffinity": {
+      "requiredDuringSchedulingIgnoredDuringExecution": [{
+        "labelSelector": {"matchExpressions": [{"key": "k8s-app",
+          "operator": "In", "values": ["kube-dns"]}]},
+        "topologyKey": "kubernetes.io/hostname"}]}}}}}}'
+kubectl -n kube-system rollout status deployment/coredns
+```
+
+Without this, all CoreDNS replicas can land on one node again and a single node
+failure takes cluster DNS down with it.
+
 ### 2. Cilium
 
 Install the matching CLI first, then upgrade. `cilium upgrade` reuses the values

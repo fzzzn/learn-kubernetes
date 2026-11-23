@@ -204,6 +204,30 @@ write_files:
         kubectl -n kube-system rollout status \
           daemonset/openstack-cinder-csi-nodeplugin --timeout=5m
 
+        # kubeadm ships two CoreDNS replicas with a preferred anti-affinity, so
+        # the scheduler is free to stack both on one node and take all DNS down
+        # with it. One replica per node, one per host, is required.
+        #
+        # The count comes from Terraform, not from `kubectl get nodes`: this
+        # runs on the control plane before any worker has joined, and a
+        # required anti-affinity cannot schedule the extras until they do.
+        kubectl -n kube-system scale deployment/coredns \
+          --replicas="${node_count}"
+
+        # maxSurge must be 0: with a required host anti-affinity a surge pod has
+        # no node to land on and the rollout stalls.
+        kubectl -n kube-system patch deployment/coredns --type=merge -p '{
+          "spec": {
+            "strategy": {"type": "RollingUpdate",
+              "rollingUpdate": {"maxSurge": 0, "maxUnavailable": 1}},
+            "template": {"spec": {"affinity": {"podAntiAffinity": {
+              "requiredDuringSchedulingIgnoredDuringExecution": [{
+                "labelSelector": {"matchExpressions": [{"key": "k8s-app",
+                  "operator": "In", "values": ["kube-dns"]}]},
+                "topologyKey": "kubernetes.io/hostname"}]}}}}}}'
+
+        kubectl -n kube-system rollout status deployment/coredns --timeout=5m
+
         cilium status --wait --wait-duration 10m
       else
         if [ ! -f /etc/kubernetes/kubelet.conf ]; then
